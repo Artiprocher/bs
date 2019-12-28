@@ -12,8 +12,6 @@
 
 #### 多元线性回归模型
 
-现实生活中有很多随机变量之间是有内在联系的，比如人的身高和体重，一般来说，身高较高的人体重往往越重，但二者之间并没有确定的关系，回归即找到变量之间的潜在联系，得到其大致的变化趋势
-
 假设有训练数据集 $\{x_i,y_i\}_{i=1}^m$ ，其中随机变量 $x_i\in \mathbb{R}^n,y_i\in \mathbb{R},i=1,2,\dots,m$ ，以及预测数据集 $\{x_i'\}_{i=1}^m$ ，我们需要得到预测数据集中每一个数据对应的 $y_i'$ 
 
 在多元线性回归模型中， 假设 $x=(x_1,x_2,\dots,x_n)\in \mathbb{R}^n$ 与 $y\in \mathbb{R}$ 有关系
@@ -28,7 +26,7 @@ $$
 $$
 \min\sum_{i=1}^m\left(\sum_{j=1}^nw_jx_{ij}-y_i\right)^2
 $$
-使用数学方法可以求出最优的 $w$ ，但是在实际应用中，由于数据量较大，很那用数学结论求得精确地最优解，因此可以使用梯度下降法得到 $w$ 的近似最优解
+使用数学方法可以求出最优的 $w$ ，但是在实际应用中，由于数据量较大，很难用数学结论求得精确地最优解，因此可以使用梯度下降法得到 $w$ 的近似最优解
 
 令目标函数
 $$
@@ -88,4 +86,136 @@ $$
 \frac{\partial E}{\partial w_j}=-\frac{e^{wx^T}x_j}{1+e^{wx^T}}
 $$
 用同样的方法迭代即可得到 $w$ 
+
+
+## 线性模型测试
+
+本文将使用 C++ 语言搭建简单的神经网络
+
+声明向量类
+```cpp
+#include <bits/stdc++.h>
+#ifndef ML_Vector
+#define ML_Vector
+typedef std::vector<double> Vector;
+#define each_index(i,a) for(int i=0;i<a.size();i++)
+Vector operator += (Vector &a,const Vector &b){each_index(i,a)a[i]+=b[i];return a;}
+Vector operator -= (Vector &a,const Vector &b){each_index(i,a)a[i]-=b[i];return a;}
+Vector operator *= (Vector &a,const Vector &b){each_index(i,a)a[i]*=b[i];return a;}
+Vector operator /= (Vector &a,const Vector &b){each_index(i,a)a[i]/=b[i];return a;}
+Vector operator + (const Vector &a,const Vector &b){Vector c=a;return c+=b;}
+Vector operator - (const Vector &a,const Vector &b){Vector c=a;return c-=b;}
+Vector operator * (const Vector &a,const Vector &b){Vector c=a;return c*=b;}
+Vector operator / (const Vector &a,const Vector &b){Vector c=a;return c/=b;}
+Vector operator += (Vector &a,const double &b){each_index(i,a)a[i]+=b;return a;}
+Vector operator -= (Vector &a,const double &b){each_index(i,a)a[i]-=b;return a;}
+Vector operator *= (Vector &a,const double &b){each_index(i,a)a[i]*=b;return a;}
+Vector operator /= (Vector &a,const double &b){each_index(i,a)a[i]/=b;return a;}
+Vector operator + (const Vector &a,const double b){Vector c=a;return c+=b;}
+Vector operator - (const Vector &a,const double b){Vector c=a;return c-=b;}
+Vector operator * (const Vector &a,const double b){Vector c=a;return c*=b;}
+Vector operator / (const Vector &a,const double b){Vector c=a;return c/=b;}
+Vector operator + (const double b,const Vector &a){Vector c=a;return c+=b;}
+Vector operator - (const double b,const Vector &a){return Vector(a.size(),b)-a;}
+Vector operator * (const double b,const Vector &a){Vector c=a;return c*=b;}
+Vector operator / (const double b,const Vector &a){return Vector(a.size(),b)/a;}
+Vector operator - (const Vector &a){Vector c=a;each_index(i,c)c[i]=-c[i];return c;}
+double Dot(const Vector &a,const Vector &b){
+    assert(a.size()==b.size());
+    double ans=0;
+    each_index(i,a)ans+=a[i]*b[i];
+    return ans;
+}
+double sum(const Vector &a){return std::accumulate(a.begin(),a.end(),0.0);}
+std::istream &operator >>(std::istream &in,Vector &a){double x;in>>x;a.push_back(x);return in;}
+std::ostream &operator <<(std::ostream &out,const Vector &a){
+    out<<'(';
+    each_index(i,a){
+        out<<a[i];
+        if(i+1!=(int)a.size())out<<',';
+    }
+    out<<')';
+    return out;
+}
+template <class fun> void each(Vector &a,fun op){
+    each_index(i,a)op(a[i]);
+}
+#endif
+```
+
+线性模型
+```cpp
+#include <bits/stdc++.h>
+#ifndef ML_Linear_Model
+#define ML_Linear_Model
+double Rand() {return rand() * 1.0 / 32768;}
+
+class LinearRegression {
+private:
+    Vector w;
+public:
+    double eta = 0.1;
+    void init(int n) {
+        w.resize(n);
+        for (auto &i : w)i = Rand();
+    }
+    LinearRegression() {}
+    LinearRegression(int n) {init(n);}
+    void show()const {
+        std::cout << " y =";
+        each_index(i, w) {
+            std::cout << " "[i == 0] << "(" << w[i] << ") * x"
+                      << i << " " << "+\n"[i + 1 == w.size()];
+        }
+    }
+    double predict(const Vector &x)const {
+        assert(x.size() == w.size());
+        return Dot(x, w);
+    }
+    void train(const Vector &x, const double &y) {
+        assert(x.size() == w.size());
+        double y_ = predict(x);
+        w -= (eta * (y_ - y)) * x;
+    }
+};
+
+class LogitRegression {
+private:
+    Vector w;
+public:
+    double eta = 0.1;
+    static double sigmoid(double x) {
+        return 1.0 / (1 + exp(-x));
+    }
+    static double sigmoid_diff(double x) {
+        double temp = exp(-x);
+        return temp / ((1 + temp) * (1 + temp));
+    }
+    void init(int n) {
+        w.resize(n);
+        for (auto &i : w)i = Rand();
+    }
+    LogitRegression() {}
+    LogitRegression(int n) {init(n);}
+    void show()const {
+        std::cout << " y = sigmoid(";
+        each_index(i, w) {
+            std::cout << " "[i == 0] << "(" << w[i] << ") * x"
+                      << i << " " << "+)"[i + 1 == w.size()];
+        }
+        std::cout << std::endl;
+    }
+    double predict(const Vector &x)const {
+        assert(x.size() == w.size());
+        return sigmoid(Dot(x, w));
+    }
+    void train(const Vector &x, const double &y) {
+        assert(x.size() == w.size());
+        double s = Dot(x, w), y_ = sigmoid(s);
+        w -= (eta * (y_ - y) * sigmoid_diff(s)) * x;
+    }
+};
+#endif
+```
+
 
