@@ -47,7 +47,7 @@ int main() {
     rep(it,1,epoch){
         int idx=randint(0,split_position-1);
         rep(i,0,9)L[i].train(trainx.data[idx],trainy.data[idx][i]);
-        if(it%10000==0)cout<<it<<endl;
+        if(it%10000==0)cout<<it/10000<<"%"<<endl;
     }
     //judge
     cout<<"Judging model"<<endl;
