@@ -1,7 +1,9 @@
 #include <bits/stdc++.h>
+#include "ML_Vector.h"
+#include "ML_Rand.h"
+
 #ifndef ML_Linear_Model
 #define ML_Linear_Model
-double Rand() {return rand() * 1.0 / 32768;}
 
 class LinearRegression {
 private:
@@ -10,7 +12,7 @@ public:
     double eta = 0.1;
     void init(int n) {
         w.resize(n);
-        for (auto &i : w)i = Rand();
+        for (auto &i : w)i = Rand() - 0.5;
     }
     LinearRegression() {}
     LinearRegression(int n) {init(n);}
@@ -46,7 +48,7 @@ public:
     }
     void init(int n) {
         w.resize(n);
-        for (auto &i : w)i = Rand();
+        for (auto &i : w)i = Rand() - 0.5;
     }
     LogitRegression() {}
     LogitRegression(int n) {init(n);}
