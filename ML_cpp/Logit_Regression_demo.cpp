@@ -3,7 +3,8 @@
 #include "ML_Model.h"
 using namespace std;
 
-LogitRegression L[10](784);
+CSV_Reader csv_reader;
+LogitRegression L[10];
 DataSet trainx,trainy,testx,testy;
 
 void show_image(const Vector &a){
@@ -37,18 +38,32 @@ int main() {
     csv_reader.export_onehot_data(1,split_position,0,trainy);
     csv_reader.export_number_data(split_position+1,42000,1,784,testx);
     csv_reader.export_onehot_data(split_position+1,42000,0,testy);
+    csv_reader.close();
     rep(i,0,trainx.data.size()-1)trainx.data[i]*=1.0/255;
     rep(i,0,testx.data.size()-1)testx.data[i]*=1.0/255;
     //model init
-    rep(i,0,9)L[i].eta=0.1;
+    rep(i,0,9){
+        L[i].eta=0.1;
+        L[i].init(784);
+    }
     //train
     cout<<"Training model"<<endl;
-    int epoch=1000000;
+    int epoch=10000000;
     rep(it,1,epoch){
         int idx=randint(0,split_position-1);
         rep(i,0,9)L[i].train(trainx.data[idx],trainy.data[idx][i]);
-        if(it%10000==0)cout<<it/10000<<"%"<<endl;
+        if(it%100000==0)cout<<it/100000<<"%"<<endl;
     }
+    L[0].save("L0.ini");
+    L[1].save("L1.ini");
+    L[2].save("L2.ini");
+    L[3].save("L3.ini");
+    L[4].save("L4.ini");
+    L[5].save("L5.ini");
+    L[6].save("L6.ini");
+    L[7].save("L7.ini");
+    L[8].save("L8.ini");
+    L[9].save("L9.ini");
     //judge
     cout<<"Judging model"<<endl;
     judge(testx,testy);

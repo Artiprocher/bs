@@ -3,7 +3,8 @@
 #include "ML_Model.h"
 using namespace std;
 
-LinearRegression L[10](784);
+CSV_Reader csv_reader;
+LinearRegression L[10];
 DataSet trainx,trainy,testx,testy;
 
 void show_image(const Vector &a){
@@ -37,10 +38,14 @@ int main() {
     csv_reader.export_onehot_data(1,split_position,0,trainy);
     csv_reader.export_number_data(split_position+1,42000,1,784,testx);
     csv_reader.export_onehot_data(split_position+1,42000,0,testy);
+    csv_reader.close();
     rep(i,0,trainx.data.size()-1)trainx.data[i]*=1.0/255;
     rep(i,0,testx.data.size()-1)testx.data[i]*=1.0/255;
     //model init
-    rep(i,0,9)L[i].eta=0.001;
+    rep(i,0,9){
+        L[i].eta=0.001;
+        L[i].init(784);
+    }
     //train
     cout<<"Training model"<<endl;
     int epoch=1000000;
