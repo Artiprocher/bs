@@ -1,6 +1,7 @@
 #include <bits/stdc++.h>
 #include "ML_Tensor.h"
 #include "ML_Vector.h"
+#include "ML_Rand.h"
 #ifndef ML_Neural_Network
 #define ML_Neural_Network
 double active_function(int flag, double x) {
