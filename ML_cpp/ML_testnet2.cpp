@@ -1,28 +1,40 @@
 #include <bits/stdc++.h>
+#define rep(i,a,b) for(int i=a;i<=b;i++)
 #include "ML_Vector.h"
 #include "ML_Rand.h"
-#ifndef ML_Neural_Network
-#define ML_Neural_Network
-enum ActivationFunction{CONSTANT,SIGMOID};
-double constant(double x){
-    return x;
-}
-double constant_diff(double x){
-    return 1.0;
-}
-double sigmoid(double x){
-    return 1.0/(1.0+exp(-x));
-}
-double sigmoid_diff(double x){
-    double temp = exp(-x);
-    return temp / ((1 + temp) * (1 + temp));
+using namespace std;
+
+namespace ActivationFunction{
+class AF{
+public:
+    virtual double cal(double x)=0;
+    virtual double diff(double x)=0;
+};
+class CONSTANT:public AF{
+public:
+    double cal(double x){
+        return x;
+    }
+    double diff(double x){
+        return 1.0;
+    }
+}constant;
+class SIGMOID:public AF{
+public:
+    double cal(double x){
+        return 1.0/(1.0+exp(-x));
+    }
+    double diff(double x){
+        double temp = exp(-x);
+        return temp / ((1 + temp) * (1 + temp));
+    }
+}sigmoid;
 }
 
 class Layer{
 public:
-    double (*f) (double x);
-    double (*f_) (double x);
-    std::vector<Vector> w,dw;
+    ActivationFunction::AF *f;
+    vector<Vector> w,dw;
     Vector val,diff_val,in_val;
     int flag;
     int size()const{
@@ -58,18 +70,18 @@ void connect(Layer &a,Layer &b){
 class BP_Network{
 public:
     double eta=0.1;
-    std::vector<Layer> L;
+    vector<Layer> L;
     void show()const{
         for(int i=0;i<L.size();i++){
-            std::cout<<"Layer:"<<i<<" activation_function_flag:"<<L[i].flag<<std::endl;
-            std::cout<<std::fixed<<std::setprecision(3);
+            cout<<"Layer:"<<i<<" activation_function_flag:"<<L[i].flag<<endl;
+            cout<<fixed<<setprecision(3);
             for(auto j:(L[i].w)){
-                for(auto i:j)std::cout<<" "<<i;
-                std::cout<<std::endl;
+                for(auto i:j)cout<<" "<<i;
+                cout<<endl;
             }
         }
     }
-    void init(const std::vector<int> &size,const std::vector<int> &flag){
+    void init(const vector<int> &size,const vector<int> &flag){
         assert(size.size()==flag.size());
         L.resize(size.size());
         for(int i=0;i<size.size();i++){
@@ -123,13 +135,27 @@ public:
                 for(int k=0;k<L[i-1].size();k++){
                     L[i].dw[j][k]=L[i].diff_val[j]*L[i].f_(L[i].in_val[j])*L[i-1].val[k];
                     L[i].w[j][k]-=eta*L[i].dw[j][k];
-                    if(std::isinf(L[i].w[j][k])){
-                        std::cerr<<"Divergence!"<<std::endl;
-                        exit(0);
-                    }
                 }
             }
         }
     }
 };
-#endif
+
+int main(){
+    BP_Network net;
+    net.init({2,2,2},{CONSTANT,CONSTANT,CONSTANT});
+    net.show();
+    rep(it,1,10000){
+        double a=Rand(),b=Rand();
+        net.train({a,b},{a+b,a-b});
+    }
+    net.show();
+    double a,b;
+    while(cin>>a>>b){
+        cout<<net.predict({a,b})<<endl;
+    }
+    return 0;
+}
+/*
+
+*///

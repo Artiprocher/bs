@@ -1,25 +1,60 @@
 #include <bits/stdc++.h>
-#include "ML_Tensor.h"
-#include "ML_Vector.h"
-#include "ML_Linear_Model.h"
-#include "ML_Neural_Network.h"
+#include "ML_Model.h"
 #define rep(i,a,b) for(int i=a;i<=b;i++)
+using namespace std;
+typedef long long ll;
 
-NeuralNetwork net({2,2,1},{0,0,0});
+CSV_Reader csv_reader;
+BP_Network net;
+DataSet trainx,trainy,testx,testy;
 
-int main() {
-    std::ios::sync_with_stdio(false);
+void show_image(const Vector &a){
+    rep(i,0,783){
+        cout<<(a[i]>0.5?"*":" ");
+        if((i+1)%28==0)cout<<endl;
+    }
+    cout<<endl;
+}
+void judge(const DataSet &testx,const DataSet &testy){
+    int all=testx.data.size(),ac=0;
+    rep(it,0,all-1){
+        Vector a=net.predict(testx.data[it]);
+        int ans=0;
+        rep(i,1,9){
+            if(a[i]>a[ans])ans=i;
+        }
+        if(testy.data[it][ans]>0.5)ac++;
+    }
+    cout<<(ac*1.0/all)<<endl;
+}
+
+int main(){
+    //read data
+    cout<<"Reading data"<<endl;
+    csv_reader.open("train.csv");
+    csv_reader.shuffle();
+    int split_position=30000;
+    csv_reader.export_number_data(1,split_position,1,784,trainx);
+    csv_reader.export_onehot_data(1,split_position,0,trainy);
+    csv_reader.export_number_data(split_position+1,42000,1,784,testx);
+    csv_reader.export_onehot_data(split_position+1,42000,0,testy);
+    csv_reader.close();
+    rep(i,0,trainx.data.size()-1)trainx.data[i]*=1.0/255;
+    rep(i,0,testx.data.size()-1)testx.data[i]*=1.0/255;
+    //model init
+    net.init({784,10},{CONSTANT,SIGMOID});
     net.eta=0.1;
-    net.show();
-    rep(i,1,100000){
-        Vector x={Rand(),Rand()},y={x[0]+x[1]};
-        net.train(x,y);
+    //train
+    cout<<"Training model"<<endl;
+    int epoch=100000;
+    rep(it,1,epoch){
+        int idx=randint(0,split_position-1);
+        net.train(trainx.data[idx],trainy.data[idx]);
+        if(it%1000==0)cout<<it/1000<<"%"<<endl;
     }
-    net.show();
-    double x1,x2;
-    while(std::cin>>x1>>x2){
-        std::cout<<net.predict({x1,x2})<<std::endl;
-    }
+    //judge
+    cout<<"Judging model"<<endl;
+    judge(testx,testy);
     return 0;
 }
 /*

@@ -1,8 +1,8 @@
 #include <bits/stdc++.h>
+#define rep(i,a,b) for(int i=a;i<=b;i++)
 #include "ML_Vector.h"
 #include "ML_Rand.h"
-#ifndef ML_Neural_Network
-#define ML_Neural_Network
+
 enum ActivationFunction{CONSTANT,SIGMOID};
 double constant(double x){
     return x;
@@ -123,13 +123,27 @@ public:
                 for(int k=0;k<L[i-1].size();k++){
                     L[i].dw[j][k]=L[i].diff_val[j]*L[i].f_(L[i].in_val[j])*L[i-1].val[k];
                     L[i].w[j][k]-=eta*L[i].dw[j][k];
-                    if(std::isinf(L[i].w[j][k])){
-                        std::cerr<<"Divergence!"<<std::endl;
-                        exit(0);
-                    }
                 }
             }
         }
     }
 };
-#endif
+using namespace std;
+int main(){
+    BP_Network net;
+    net.init({2,2,2,2},{CONSTANT,CONSTANT,CONSTANT,CONSTANT});
+    net.show();
+    rep(it,1,10000){
+        double a=Rand(),b=Rand();
+        net.train({a,b},{a+b,a-b});
+    }
+    net.show();
+    double a,b;
+    while(cin>>a>>b){
+        cout<<net.predict({a,b})<<endl;
+    }
+    return 0;
+}
+/*
+
+*///

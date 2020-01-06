@@ -103,6 +103,7 @@ class CSV_Reader {
         if (file_flag == 1) {
             file.close();
         }
+        file_flag = 1;
         file.open(file_name, std::ios::in);
         if (!file) {
             std::cerr << "Open file error." << std::endl;

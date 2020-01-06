@@ -32,6 +32,10 @@ class LinearRegression {
         assert(x.size() == w.size());
         double y_ = predict(x);
         w -= (eta * (y_ - y)) * x;
+        for(auto i:w)if(std::isinf(i)){
+            std::cerr<<"Divergence!"<<std::endl;
+            exit(1);
+        }
     }
     void save(const char *file_name) const {
         std::ofstream fout;
@@ -90,6 +94,10 @@ class LogitRegression {
         assert(x.size() == w.size());
         double s = Dot(x, w), y_ = sigmoid(s);
         w -= (eta * (y_ - y) * sigmoid_diff(s)) * x;
+        for(auto i:w)if(std::isinf(i)){
+            std::cerr<<"Divergence!"<<std::endl;
+            exit(1);
+        }
     }
     void save(const char *file_name) const {
         std::ofstream fout;
