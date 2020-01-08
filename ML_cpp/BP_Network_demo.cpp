@@ -46,12 +46,13 @@ int main() {
     net.eta = 0.1;
     // train
     cout << "Training model" << endl;
-    int epoch = 100000;
+    int epoch = 1000000;
     rep(it, 1, epoch) {
         int idx = randint(0, split_position - 1);
         net.train(trainx.data[idx], trainy.data[idx]);
-        if (it % 1000 == 0) cout << it / 1000 << "%" << endl;
+        if (it % 10000 == 0) cout << it / 10000 << "%" << endl;
     }
+    //net.show();
     // judge
     cout << "Judging model" << endl;
     judge(testx, testy);

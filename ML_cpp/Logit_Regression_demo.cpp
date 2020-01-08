@@ -48,11 +48,11 @@ int main() {
     }
     //train
     cout<<"Training model"<<endl;
-    int epoch=10000000;
+    int epoch=1000000;
     rep(it,1,epoch){
         int idx=randint(0,split_position-1);
         rep(i,0,9)L[i].train(trainx.data[idx],trainy.data[idx][i]);
-        if(it%100000==0)cout<<it/100000<<"%"<<endl;
+        if(it%10000==0)cout<<it/10000<<"%"<<endl;
     }
     L[0].save("L0.ini");
     L[1].save("L1.ini");
