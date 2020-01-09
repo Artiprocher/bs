@@ -42,20 +42,24 @@ int main() {
     rep(i, 0, trainx.data.size() - 1) trainx.data[i] *= 1.0 / 255;
     rep(i, 0, testx.data.size() - 1) testx.data[i] *= 1.0 / 255;
     // model init
-    net.init({784, 10}, {CONSTANT, SIGMOID});
-    net.eta = 0.1;
+    net.init({784, 200, 10}, {CONSTANT, SIGMOID, SIGMOID});
+    net.eta = 0.5;
     // train
     cout << "Training model" << endl;
-    int epoch = 1000000;
+    ll epoch = 1000000, goal = 1;
     rep(it, 1, epoch) {
         int idx = randint(0, split_position - 1);
         net.train(trainx.data[idx], trainy.data[idx]);
-        if (it % 10000 == 0) cout << it / 10000 << "%" << endl;
+        if (it * 100 >= epoch * goal) {
+            cout << it * 100.0 / epoch << "%" << endl;
+            if (goal % 10 == 0) {
+                cout << "accuracy:";
+                judge(testx, testy);
+            }
+            goal++;
+        }
     }
     //net.show();
-    // judge
-    cout << "Judging model" << endl;
-    judge(testx, testy);
     return 0;
 }
 /*

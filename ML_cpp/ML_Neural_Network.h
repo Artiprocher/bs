@@ -4,19 +4,24 @@
 #ifndef ML_Neural_Network
 #define ML_Neural_Network
 
-enum ActivationFunction { CONSTANT, SIGMOID, SIN };
-double constant(double x) { return x; }
-double constant_diff(double x) { return 1.0; }
-double sigmoid(double x) { return 1.0 / (1.0 + exp(-x)); }
-double sigmoid_diff(double x) {
+enum ActivationFunction { CONSTANT, SIGMOID, SIN, RELU };
+std::function<double(double)> constant = [](double x) { return x; };
+std::function<double(double)> constant_diff = [](double x) { return 1.0; };
+std::function<double(double)> sigmoid = [](double x) {
+    return 1.0 / (1.0 + exp(-x));
+};
+std::function<double(double)> sigmoid_diff = [](double x) {
     double temp = exp(-x);
     return temp / ((1.0 + temp) * (1.0 + temp));
-}
+};
+std::function<double(double)> Sin = [](double x) { return std::sin(x); };
+std::function<double(double)> Cos = [](double x) { return std::sin(x); };
+std::function<double(double)> relu = [](double x) {return x>0?x:0.0;};
+std::function<double(double)> relu_diff = [](double x) {return x>0?1.0:0.0;};
 
 class Layer {
    public:
-    double (*f)(double x);
-    double (*f_)(double x);
+    std::function<double(double)> f, f_;
     std::vector<Vector> w;
     Vector val, diff_val, in_val, c;
     int flag;
@@ -32,8 +37,11 @@ class Layer {
             f = sigmoid;
             f_ = sigmoid_diff;
         } else if (activation_function_flag == SIN) {
-            f = std::sin;
-            f_ = std::cos;
+            f = Sin;
+            f_ = Cos;
+        } else if (activation_function_flag == RELU){
+            f = relu;
+            f_ = relu_diff;
         } else {
             assert(false);
         }
@@ -46,12 +54,12 @@ class Layer {
             i = Rand() - 0.5;
         }
     }
-    void resetWeight(double l,double r){
+    void resetWeight(double l, double r) {
         for (auto &i : w) {
-            for (auto &j : i) j = Rand(l,r);
+            for (auto &j : i) j = Rand(l, r);
         }
         for (auto &i : c) {
-            i = Rand(l,r);
+            i = Rand(l, r);
         }
     }
 };
@@ -92,7 +100,8 @@ class BP_Network {
     void push_forward(const Vector &x) {
         assert(x.size() == L[0].size());
         for (int i = 0; i < L[0].size(); i++) {
-            L[0].val[i] = x[i];
+            L[0].in_val[i] = x[i];
+            L[0].val[i] = L[0].f(L[0].in_val[i]);
         }
         for (int i = 1; i < L.size(); i++) {
             for (int j = 0; j < L[i].size(); j++) {
