@@ -1,6 +1,6 @@
 #include <bits/stdc++.h>
 #include "ML_Model.h"
-#define rep(i,a,b) for(int i=a;i<=b;i++)
+#define rep(i,a,b) for(int i=(a);i<=(int)(b);i++)
 using namespace std;
 
 namespace Timer{
@@ -12,7 +12,6 @@ void reset(){
 
 class Node;/*神经网络计算图节点*/
 class Edge;/*神经网络边*/
-class LinearNode;/*线性组合节点*/
 class ActiveNode;/*激活函数节点*/
 
 class Edge{
@@ -29,6 +28,7 @@ public:
     double in_val,out_val,diff_val;
     double eta;
     int time_flag,index,in_deg;
+    int threshold;
     vector<Edge*> pre,nex;
     virtual void show(){};
     virtual void add_forward(double x){};
@@ -37,6 +37,7 @@ public:
     virtual void push_backward(){};
     virtual void update_w(){};
     virtual void set_active_function(function<double(double)> F,function<double(double)> F_){};
+    virtual void threshold_cancel(){};
 };
 class ActiveNode:public Node{
 public:
@@ -45,6 +46,7 @@ public:
     ActiveNode(){
         time_flag=Timer::timer;
         eta=0.1;
+        threshold=1;
         c=Rand(-0.5,0.5);
     }
     virtual void show(){
@@ -56,6 +58,10 @@ public:
     virtual void set_active_function(function<double(double)> F,function<double(double)> F_){
         f=F;
         f_=F_;
+    }
+    virtual void threshold_cancel(){
+        threshold=0;
+        c=0;
     }
     virtual void add_forward(double x){
         if(time_flag!=Timer::timer){
@@ -89,7 +95,7 @@ public:
         for(auto &e:pre){
             e->w-=eta*diff_val*(e->u->out_val);
         }
-        c-=eta*diff_val;
+        if(threshold==1)c-=eta*diff_val;
     }
 };
 Edge* connect(Node *u,Node *v){
@@ -116,15 +122,15 @@ public:
         }
     }
     void clear(){
-        for(auto &i:L)delete i;
         L.clear();
-        for(auto &i:E)delete i;
         E.clear();
     }
     void init(const vector<int> &size,const vector< function<double(double)> > &f,const vector< function<double(double)> > &f_){
+        clear();
+        assert(size.size()==f.size() && f.size()==f_.size());
         L.resize(accumulate(size.begin(),size.end(),0));
         int index=0;
-        for(int i=0;i<size.size();i++){
+        for(int i=0;i<(int)size.size();i++){
             for(int j=0;j<size[i];j++){
                 L[index]=new ActiveNode;
                 L[index]->index=index;
@@ -143,6 +149,7 @@ public:
             }
             index+=size[i];
         }
+        for(auto &i:X)i->threshold_cancel();
         Timer::timer++;
     }
     void set_eta(double e){
@@ -154,20 +161,20 @@ public:
         for(auto &i:X)i->add_forward(x[index++]);
         for(auto &i:L)i->in_deg=0;
         for(auto &i:E)i->v->in_deg++;
-        static queue<Node*> q;
-        for(auto &i:L)if(i->in_deg==0)q.push(i);
+        static Deque<Node*,10000> q;
+        for(auto &i:L)if(i->in_deg==0)q.push_back(i);
         while(!q.empty()){
             q.front()->push_forward();
             for(auto &e:q.front()->nex){
                 e->v->in_deg--;
                 if(e->v->in_deg==0){
-                    q.push(e->v);
+                    q.push_back(e->v);
                 }
             }
-            q.pop();
+            q.pop_front();
         }
         Vector y(Y.size(),0);
-        for(int i=0;i<Y.size();i++){
+        for(int i=0;i<(int)Y.size();i++){
             y[i]=Y[i]->out_val;
         }
         Timer::timer++;
@@ -180,17 +187,17 @@ public:
         for(auto &i:Y)i->add_backward((i->out_val)-y[index++]);
         for(auto &i:L)i->in_deg=0;
         for(auto &i:E)i->u->in_deg++;
-        static queue<Node*> q;
-        for(auto &i:L)if(i->in_deg==0)q.push(i);
+        static Deque<Node*,10000> q;
+        for(auto &i:L)if(i->in_deg==0)q.push_back(i);
         while(!q.empty()){
             q.front()->push_backward();
             for(auto &e:q.front()->pre){
                 e->u->in_deg--;
                 if(e->u->in_deg==0){
-                    q.push(e->u);
+                    q.push_back(e->u);
                 }
             }
-            q.pop();
+            q.pop_front();
         }
         for(auto &i:L)i->update_w();
         Timer::timer++;
@@ -225,7 +232,7 @@ int main(){
     // read data
     cout << "Reading data" << endl;
     csv_reader.open("train.csv");
-    csv_reader.shuffle();
+    //csv_reader.shuffle();
     int split_position = 30000;
     csv_reader.export_number_data(1, split_position, 1, 784, trainx);
     csv_reader.export_onehot_data(1, split_position, 0, trainy);
@@ -235,19 +242,24 @@ int main(){
     rep(i, 0, trainx.data.size() - 1) trainx.data[i] *= 1.0 / 255;
     rep(i, 0, testx.data.size() - 1) testx.data[i] *= 1.0 / 255;
     // model init
-    net.init({784, 60, 10}, {constant, sigmoid, sigmoid}, {constant_diff, sigmoid_diff, sigmoid_diff});
-    net.set_eta(0.1);
+    net.init({784, 10, 10}, {constant, sigmoid, sigmoid}, {constant_diff, sigmoid_diff, sigmoid_diff});
+    net.set_eta(0.5);
     // train
     cout << "Training model" << endl;
-    int epoch = 1000000;
+    judge(testx, testy);
+    int epoch = 1000000, goal = 1;
     rep(it, 1, epoch) {
         int idx = randint(0, split_position - 1);
         net.train(trainx.data[idx], trainy.data[idx]);
-        if (it % 10000 == 0) cout << it / 10000 << "%" << endl;
+        if (it * 100 >= epoch * goal) {
+            cout << it * 100.0 / epoch << "%" << endl;
+            if (goal % 10 == 0) {
+                cout << "accuracy:";
+                judge(testx, testy);
+            }
+            goal++;
+        }
     }
-    // judge
-    cout << "Judging model" << endl;
-    judge(testx, testy);
     return 0;
 }
 /*

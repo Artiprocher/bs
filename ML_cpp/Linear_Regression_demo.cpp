@@ -1,5 +1,5 @@
 #include <bits/stdc++.h>
-#define rep(i,a,b) for(int i=a;i<=b;i++)
+#define rep(i,a,b) for(int i=(a);i<=(int)(b);i++)
 #include "ML_Model.h"
 using namespace std;
 

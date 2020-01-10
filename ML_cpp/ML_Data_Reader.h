@@ -11,9 +11,9 @@ class DataSet {
         for (auto &i : data) i = Vector(m, 0);
     }
     double &operator()(int x, int y) {
-        if (x < 0 || x >= data.size()) {
+        if (x < 0 || x >= (int)data.size()) {
             std::cerr << "Row index out of range." << std::endl;
-        } else if (y < 0 || y >= data[x].size()) {
+        } else if (y < 0 || y >= (int)data[x].size()) {
             std::cerr << "Col index out of range." << std::endl;
         }
         return data[x][y];
@@ -22,23 +22,24 @@ class DataSet {
         if (B.data.size() != data.size()) {
             std::cerr << "Size error." << std::endl;
         }
-        for (int i = 0; i < data.size(); i++) {
-            for (int j = 0; j < B.data[i].size(); j++) {
+        for (int i = 0; i < (int)data.size(); i++) {
+            for (int j = 0; j < (int)B.data[i].size(); j++) {
                 data[i].emplace_back(B.data[i][j]);
             }
         }
+        return *this;
     }
     void show() const {
         static const int show_size = 5;
         std::cout << "row: " << data.size() << " col:" << data[0].size()
                   << std::endl;
-        for (int i = 0; i < data.size(); i++) {
-            if (i >= show_size && i + show_size < data.size()) {
+        for (int i = 0; i < (int)data.size(); i++) {
+            if (i >= show_size && i + show_size < (int)data.size()) {
                 std::cout << "..." << std::endl;
                 i = data.size() - show_size;
             }
-            for (int j = 0; j < data[i].size(); j++) {
-                if (j >= show_size && j + show_size < data[i].size()) {
+            for (int j = 0; j < (int)data[i].size(); j++) {
+                if (j >= show_size && j + show_size < (int)data[i].size()) {
                     std::cout << "\t...";
                     j = data[i].size() - show_size;
                 }
@@ -131,8 +132,8 @@ class CSV_Reader {
         std::vector<int> number(C, 0);
         for (int i = 1; i <= R; i++) {
             int last = 0, idx = 0;
-            for (int j = 0; j <= str_data[i].size(); j++) {
-                if (j == str_data[i].size() || str_data[i][j] == ',') {
+            for (int j = 0; j <= (int)str_data[i].size(); j++) {
+                if (j == (int)str_data[i].size() || str_data[i][j] == ',') {
                     number[idx] += isNumber(str_data[i], last, j - 1);
                     last = j + 1;
                     idx++;
@@ -151,8 +152,8 @@ class CSV_Reader {
         D.resize(r2 - r1 + 1, c2 - c1 + 1);
         for (int i = r1; i <= r2; i++) {
             int last = 0, idx = 0;
-            for (int j = 0; j <= str_data[i].size(); j++) {
-                if (j == str_data[i].size() || str_data[i][j] == ',') {
+            for (int j = 0; j <= (int)str_data[i].size(); j++) {
+                if (j == (int)str_data[i].size() || str_data[i][j] == ',') {
                     if (idx >= c1 && idx <= c2) {
                         D(i - r1, idx - c1) = str2num(str_data[i], last, j - 1);
                     }
@@ -167,8 +168,8 @@ class CSV_Reader {
         a.resize(r2 - r1 + 1);
         for (int i = r1; i <= r2; i++) {
             int last = 0, idx = 0;
-            for (int j = 0; j <= str_data[i].size(); j++) {
-                if (j == str_data[i].size() || str_data[i][j] == ',') {
+            for (int j = 0; j <= (int)str_data[i].size(); j++) {
+                if (j == (int)str_data[i].size() || str_data[i][j] == ',') {
                     if (idx == c) {
                         a[i - r1] = str_data[i].substr(last, j - last);
                         break;

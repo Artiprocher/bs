@@ -1,6 +1,6 @@
 #include <bits/stdc++.h>
 #include "ML_Model.h"
-#define rep(i, a, b) for (int i = a; i <= b; i++)
+#define rep(i,a,b) for(int i=(a);i<=(int)(b);i++)
 using namespace std;
 typedef long long ll;
 
@@ -32,7 +32,7 @@ int main() {
     // read data
     cout << "Reading data" << endl;
     csv_reader.open("train.csv");
-    csv_reader.shuffle();
+    //csv_reader.shuffle();
     int split_position = 30000;
     csv_reader.export_number_data(1, split_position, 1, 784, trainx);
     csv_reader.export_onehot_data(1, split_position, 0, trainy);
@@ -42,11 +42,12 @@ int main() {
     rep(i, 0, trainx.data.size() - 1) trainx.data[i] *= 1.0 / 255;
     rep(i, 0, testx.data.size() - 1) testx.data[i] *= 1.0 / 255;
     // model init
-    net.init({784, 200, 10}, {CONSTANT, SIGMOID, SIGMOID});
+    net.init({784, 10}, {CONSTANT, SIGMOID});
     net.eta = 0.5;
     // train
     cout << "Training model" << endl;
-    ll epoch = 1000000, goal = 1;
+    judge(testx, testy);
+    ll epoch = 10000, goal = 1;
     rep(it, 1, epoch) {
         int idx = randint(0, split_position - 1);
         net.train(trainx.data[idx], trainy.data[idx]);
@@ -59,7 +60,6 @@ int main() {
             goal++;
         }
     }
-    //net.show();
     return 0;
 }
 /*

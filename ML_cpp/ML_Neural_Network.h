@@ -48,7 +48,7 @@ class Layer {
     }
     void resetWeight() {
         for (auto &i : w) {
-            for (auto &j : i) j = Rand() - 0.5;
+            for (auto &j : i) j = Rand(-0.5, 0.5);
         }
         for (auto &i : c) {
             i = Rand() - 0.5;
@@ -72,7 +72,7 @@ class BP_Network {
     double eta = 0.1;
     std::vector<Layer> L;
     void show() const {
-        for (int i = 0; i < L.size(); i++) {
+        for (int i = 0; i < (int)L.size(); i++) {
             std::cout << "Layer:" << i
                       << " activation_function_flag:" << L[i].flag << std::endl;
             std::cout << std::fixed << std::setprecision(3);
@@ -87,23 +87,23 @@ class BP_Network {
     void init(const std::vector<int> &size, const std::vector<int> &flag) {
         assert(size.size() == flag.size());
         L.resize(size.size());
-        for (int i = 0; i < size.size(); i++) {
+        for (int i = 0; i < (int)size.size(); i++) {
             L[i].init(flag[i], size[i]);
         }
-        for (int i = 0; i + 1 < size.size(); i++) {
+        for (int i = 0; i + 1 < (int)size.size(); i++) {
             connect(L[i], L[i + 1]);
         }
-        for (int i = 1; i < size.size(); i++) {
+        for (int i = 1; i < (int)size.size(); i++) {
             L[i].resetWeight();
         }
     }
     void push_forward(const Vector &x) {
-        assert(x.size() == L[0].size());
+        assert((int)x.size() == (int)L[0].size());
         for (int i = 0; i < L[0].size(); i++) {
             L[0].in_val[i] = x[i];
             L[0].val[i] = L[0].f(L[0].in_val[i]);
         }
-        for (int i = 1; i < L.size(); i++) {
+        for (int i = 1; i < (int)L.size(); i++) {
             for (int j = 0; j < L[i].size(); j++) {
                 L[i].in_val[j] = L[i].c[j];
                 for (int k = 0; k < L[i - 1].size(); k++) {
@@ -114,7 +114,7 @@ class BP_Network {
         }
     }
     void push_backward(const Vector &y) {
-        assert(y.size() == L.back().size());
+        assert((int)y.size() == (int)L.back().size());
         for (int i = 0; i < L.back().size(); i++) {
             L.back().diff_val[i] = L.back().val[i] - y[i];
         }
@@ -137,7 +137,7 @@ class BP_Network {
         push_forward(x);
         push_backward(y);
         double temp;
-        for (int i = 1; i < L.size(); i++) {
+        for (int i = 1; i < (int)L.size(); i++) {
             for (int j = 0; j < L[i].size(); j++) {
                 temp = eta * L[i].diff_val[j] * L[i].f_(L[i].in_val[j]);
                 for (int k = 0; k < L[i - 1].size(); k++) {

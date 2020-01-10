@@ -21,7 +21,7 @@ class LinearRegression {
         std::cout << " y =";
         each_index(i, w) {
             std::cout << " "[i == 0] << "(" << w[i] << ") * x" << i << " "
-                      << "+\n"[i + 1 == w.size()];
+                      << "+\n"[i + 1 == (int)w.size()];
         }
     }
     double predict(const Vector &x) const {
@@ -82,7 +82,7 @@ class LogitRegression {
         std::cout << " y = sigmoid(";
         each_index(i, w) {
             std::cout << " "[i == 0] << "(" << w[i] << ") * x" << i << " "
-                      << "+)"[i + 1 == w.size()];
+                      << "+)"[i + 1 == (int)w.size()];
         }
         std::cout << std::endl;
     }

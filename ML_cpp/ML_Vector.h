@@ -2,7 +2,7 @@
 #ifndef ML_Vector
 #define ML_Vector
 typedef std::vector<double> Vector;
-#define each_index(i,a) for(int i=0;i<a.size();i++)
+#define each_index(i,a) for(int i=0;i<(int)a.size();i++)
 Vector operator += (Vector &a,const Vector &b){each_index(i,a)a[i]+=b[i];return a;}
 Vector operator -= (Vector &a,const Vector &b){each_index(i,a)a[i]-=b[i];return a;}
 Vector operator *= (Vector &a,const Vector &b){each_index(i,a)a[i]*=b[i];return a;}
