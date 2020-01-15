@@ -37,6 +37,8 @@ public:
     int index;
     /*是否需要阈值 1:需要 0:不需要*/
     int threshold;
+    /*是否需要反向传值*/
+    int need_push_backward;
     /*以该神经元为终点和起点的边*/
     vector<Edge*> pre,nex;
     /*输出神经元相关信息*/
@@ -47,10 +49,15 @@ public:
     virtual void add_forward(double x){};
     /*反向传值到该神经元*/
     virtual void add_backward(double x){};
+    /*从该神经元正向传值*/
     virtual void push_forward(){};
+    /*从该神经元反向传值*/
     virtual void push_backward(){};
+    /*更新权重*/
     virtual void update_w(){};
+    /*设置激活函数*/
     virtual void set_active_function(function<double(double)> F,function<double(double)> F_){};
+    /*取消激活函数*/
     virtual void threshold_cancel(){};
 };
 
@@ -79,6 +86,7 @@ public:
         time_flag=Timer::timer;
         eta=0.1;
         threshold=1;
+        need_push_backward=1;
         c=Rand(-0.5,0.5);
     }
     virtual void show(ostream &o)const{
@@ -90,6 +98,7 @@ public:
     virtual void set_active_function(function<double(double)> F,function<double(double)> F_){
         f=F;
         f_=F_;
+        threshold=1;
     }
     virtual void threshold_cancel(){
         threshold=0;
@@ -119,8 +128,10 @@ public:
     }
     virtual void push_backward(){
         diff_val*=f_(in_val);
-        for(auto &e:pre){
-            e->u->add_backward(diff_val*(e->w));
+        if(need_push_backward){
+            for(auto &e:pre){
+                e->u->add_backward(diff_val*(e->w));
+            }
         }
     }
     virtual void update_w(){
@@ -142,11 +153,16 @@ Edge* connect(Node *u,Node *v){
 
 class Graph{
 public:
-    vector<Node*> L;/*所有神经元*/
-    vector<Node*> X,Y;/*输入层和输出层*/
-    vector<Node*> LA,LB;/*正向拓扑序与反向拓扑序*/
-    vector< pair<int,int> > ly;/*layer位置信息*/
-    vector<Edge*> E;/*所有边*/
+    /*所有神经元*/
+    vector<Node*> L;
+    /*输入层和输出层*/
+    vector<Node*> X,Y;
+    /*正向拓扑序与反向拓扑序*/
+    vector<Node*> LA,LB;
+    /*layer位置信息*/
+    vector< pair<int,int> > ly;
+    /*所有边*/
+    vector<Edge*> E;
     void show(ostream &o)const{
         o<<"Node="<<L.size()<<endl;
         for(auto &i:L)i->show(o);
@@ -234,6 +250,13 @@ public:
             q.pop_front();
         }
         assert(LB.size()==L.size());
+        //反向传值剪枝优化
+        for(int i=ly[0].first;i<ly[0].second;i++){
+            L[i]->need_push_backward=0;
+        }
+        for(int i=ly[1].first;i<ly[1].second;i++){
+            L[i]->need_push_backward=0;
+        }
     }
     Vector predict(const Vector &x){
         assert(x.size()==X.size());
@@ -298,7 +321,7 @@ int main(){
     // model init
     NetworkProfile info={
         {784,0,constant,constant_diff,0.5},
-        {10,1,sigmoid,sigmoid_diff,0.5},
+        {200,1,sigmoid,sigmoid_diff,0.5},
         {10,1,sigmoid,sigmoid_diff,0.5}
     };
     net.init(info);
@@ -306,7 +329,7 @@ int main(){
     // train
     cout << "Training model" << endl;
     judge(testx, testy);
-    int epoch = 10000, goal = 1;
+    int epoch = 1000000, goal = 1;
     rep(it, 1, epoch) {
         int idx = randint(0, split_position - 1);
         net.train(trainx.data[idx], trainy.data[idx]);
