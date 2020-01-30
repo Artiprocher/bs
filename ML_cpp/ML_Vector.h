@@ -44,4 +44,49 @@ std::ostream &operator <<(std::ostream &out,const Vector &a){
 template <class fun> void each(Vector &a,fun op){
     each_index(i,a)op(a[i]);
 }
+
+class Tensor{
+private:
+    std::vector<double> data;
+    std::vector<int> siz;
+public:
+    void resize(const std::vector<int> &s){
+        siz=s;
+        int all=1;
+        for(auto i:siz)all*=i;
+        data.resize(all);
+    }
+    Tensor(const std::vector<int> &s){
+        resize(s);
+    }
+    std::vector<int> size()const{
+        return siz;
+    }
+#ifndef DEBUG
+    double &operator () (int a,...){
+        int index=a;
+        va_list arg_ptr;
+        va_start(arg_ptr,a);
+        for(int i=1;i<(int)siz.size();i++){
+            index=index*siz[i]+va_arg(arg_ptr,int);
+        }
+        return data[index];
+    }
+#else
+    double &operator () (int a,...){
+        int index=a;
+        assert(a>=0 && a<siz[0]);
+        va_list arg_ptr;
+        va_start(arg_ptr,a);
+        for(int i=1;i<(int)siz.size();i++){
+            int p=va_arg(arg_ptr,int);
+            assert(p>=0 && p<siz[i]);
+            index=index*siz[i]+p;
+        }
+        assert(index>=0 && index<(int)data.size());
+        return data[index];
+    }
+#endif
+};
+
 #endif
