@@ -2,6 +2,7 @@
 #include "ML_Model.h"
 #define rep(i,a,b) for(int i=(a);i<=(int)(b);i++)
 using namespace std;
+using namespace OLD;
 typedef long long ll;
 
 CSV_Reader csv_reader;
@@ -47,13 +48,13 @@ int main() {
     // train
     cout << "Training model" << endl;
     judge(testx, testy);
-    ll epoch = 1000000, goal = 1;
+    ll epoch = 10000, goal = 1;
     rep(it, 1, epoch) {
         int idx = randint(0, split_position - 1);
         net.train(trainx.data[idx], trainy.data[idx]);
         if (it * 100 >= epoch * goal) {
             cout << it * 100.0 / epoch << "%" << endl;
-            if (goal % 10 == 0) {
+            if (goal % 100 == 0) {
                 cout << "accuracy:";
                 judge(testx, testy);
             }

@@ -54,7 +54,7 @@ int main() {
         rep(i,0,9)L[i].train(trainx.data[idx],trainy.data[idx][i]);
         if(it%10000==0)cout<<it/10000<<"%"<<endl;
     }
-    L[0].save("L0.ini");
+    /*L[0].save("L0.ini");
     L[1].save("L1.ini");
     L[2].save("L2.ini");
     L[3].save("L3.ini");
@@ -63,7 +63,7 @@ int main() {
     L[6].save("L6.ini");
     L[7].save("L7.ini");
     L[8].save("L8.ini");
-    L[9].save("L9.ini");
+    L[9].save("L9.ini");*/
     //judge
     cout<<"Judging model"<<endl;
     judge(testx,testy);

@@ -4,6 +4,7 @@
 #ifndef ML_Neural_Network
 #define ML_Neural_Network
 
+namespace OLD{
 enum ActivationFunction { CONSTANT, SIGMOID, SIN, RELU };
 std::function<double(double)> constant = [](double x) { return x; };
 std::function<double(double)> constant_diff = [](double x) { return 1.0; };
@@ -152,4 +153,5 @@ class BP_Network {
         }
     }
 };
+}
 #endif
