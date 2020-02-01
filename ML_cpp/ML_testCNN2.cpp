@@ -30,6 +30,9 @@ public:
     function<double(double)> f,f_;
     /*是否需要启用阈值 1:需要 0:不需要*/
     int threshold=0;
+    /*RNN相关 是否启用RNN神经元、前一个时间点的值、权重*/
+    int recurrent=0;
+    double last_val[N],c_t[N];
     /*输出神经元相关信息*/
     virtual void show(ostream &o){o<<" I am a ActiveLayer."<<endl;}
     /*重置权重*/
@@ -42,6 +45,12 @@ public:
         reset_weight();
         threshold=1;
     }
+    /*开启RNN神经元*/
+    void turn_on_recurrent(){
+        recurrent=1;
+        for(int i=0;i<N;i++)last_val=Rand(0,1);
+        for(int i=0;i<N;i++)c_t[i]=Rand(-0.5,0.5);
+    }
     /*清理*/
     void clear(){
         fill(in_val,in_val+N,0.0);
@@ -51,6 +60,10 @@ public:
     void update_w(double eta){
         if(threshold==1){
             for(int i=0;i<N;i++)c[i]-=eta*diff_val[i];
+        }
+        if(recurrent==1){
+            for(int i=0;i<N;i++)c_t[i]-=eta*diff_val[i]*last_val[i];
+            for(int i=0;i<N;i++)last_val[i]=out_val[i];
         }
     }
 };
@@ -85,6 +98,9 @@ void push_forward(ActiveLayer<N> &A,ActiveLayer<M> &B,ComplateEdge<N,M> &E){
     if(B.threshold==1){
         for(int j=0;j<M;j++)B.in_val[j]+=B.c[j];
     }
+    if(B.recurrent==1){
+        for(int j=0;j<M;j++)B.in_val[j]+=B.c_t[j]*B.last_val[j];
+    }
     for(int j=0;j<M;j++)B.out_val[j]=B.f(B.in_val[j]);
 }
 template <const int N,const int M>
@@ -101,7 +117,7 @@ void push_backward(ActiveLayer<N> &A,ActiveLayer<M> &B,ComplateEdge<N,M> &E,doub
 namespace net{
     double eta=0.5;
     ActiveLayer<784> input_layer;
-    ActiveLayer<100> hidden_layer(sigmoid,sigmoid_diff);
+    ActiveLayer<300> hidden_layer(sigmoid,sigmoid_diff);
     ActiveLayer<10> output_layer(sigmoid,sigmoid_diff);
     auto E1=connect(input_layer,hidden_layer);
     auto E2=connect(hidden_layer,output_layer);
@@ -179,7 +195,7 @@ int main() {
     cout << "Training model" << endl;
     net::init();
     judge(testx, testy);
-    ll epoch = 1000000, goal = 1;
+    ll epoch = 3000000, goal = 1;
     rep(it, 1, epoch) {
         int idx = randint(0, split_position - 1);
         net::train(trainx.data[idx], trainy.data[idx]);

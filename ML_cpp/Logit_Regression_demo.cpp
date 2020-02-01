@@ -47,12 +47,20 @@ int main() {
         L[i].init(784);
     }
     //train
-    cout<<"Training model"<<endl;
-    int epoch=1000000;
-    rep(it,1,epoch){
-        int idx=randint(0,split_position-1);
+    cout << "Training model" << endl;
+    judge(testx, testy);
+    int epoch = 1000000, goal = 1;
+    rep(it, 1, epoch) {
+        int idx = randint(0, split_position - 1);
         rep(i,0,9)L[i].train(trainx.data[idx],trainy.data[idx][i]);
-        if(it%10000==0)cout<<it/10000<<"%"<<endl;
+        if (it * 100 >= epoch * goal) {
+            cout << it * 100.0 / epoch << "%" << endl;
+            if (goal % 100 == 0) {
+                cout << "accuracy:";
+                judge(testx, testy);
+            }
+            goal++;
+        }
     }
     /*L[0].save("L0.ini");
     L[1].save("L1.ini");
@@ -64,9 +72,6 @@ int main() {
     L[7].save("L7.ini");
     L[8].save("L8.ini");
     L[9].save("L9.ini");*/
-    //judge
-    cout<<"Judging model"<<endl;
-    judge(testx,testy);
     return 0;
 }
 

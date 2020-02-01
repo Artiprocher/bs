@@ -325,13 +325,13 @@ int main() {
     // train
     cout << "Training model" << endl;
     judge(testx, testy);
-    int epoch = 10000, goal = 1;
+    int epoch = 1000000, goal = 1;
     rep(it, 1, epoch) {
         int idx = randint(0, split_position - 1);
         net.train(trainx.data[idx], trainy.data[idx]);
         if (it * 100 >= epoch * goal) {
             cout << it * 100.0 / epoch << "%" << endl;
-            if (goal % 100 == 0) {
+            if (goal % 10 == 0) {
                 cout << "accuracy:";
                 judge(testx, testy);
             }
