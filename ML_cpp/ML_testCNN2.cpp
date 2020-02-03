@@ -120,17 +120,20 @@ public:
     }
     void forward_solve(){
         out_val.clear();
+        double temp=1.0/(H_c*W_c+100);
         for(int i=0;i<H_out;i++)for(int j=0;j<W_out;j++){
             for(int r=0;r<H_c;r++)for(int c=0;c<W_c;c++){
                 out_val(i,j)+=w(r,c)*in_val(i+r,j+c);
             }
+            out_val(i,j)*=temp;
         }
     }
     void update_w(double eta){
+        double temp=1.0/(H_c*W_c+100);
         for(int i=0;i<H_out;i++)for(int j=0;j<W_out;j++){
             assert(!isnan(diff_val(i,j)));
             for(int r=0;r<H_c;r++)for(int c=0;c<W_c;c++){
-                w(r,c)-=eta*diff_val(i,j)*in_val(i+r,j+c);
+                w(r,c)-=eta*diff_val(i,j)*in_val(i+r,j+c)*temp;
             }
         }
     }
@@ -140,8 +143,11 @@ class MaxPoolLayer:public Layer{
 public:
     static const int H_out=H_in/H_c,W_out=W_in/W_c;
     static const int input_size=H_in*W_in,output_size=H_out*W_out;
+    function<double(double)> f,f_;
     Matrix<H_in,W_in> in_val;
-    Matrix<H_out,W_out> out_val,diff_val;
+    Matrix<H_out,W_out> mid_val,out_val,diff_val;
+    MaxPoolLayer<H_in,W_in,H_c,W_c>(){}
+    MaxPoolLayer<H_in,W_in,H_c,W_c>(function<double(double)> f,function<double(double)> f_):f(f),f_(f_){}
     void clear(){}
     void forward_solve(){
         for(int i=0;i<H_out;i++)for(int j=0;j<W_out;j++){
@@ -149,32 +155,11 @@ public:
             for(int r=0;r<H_c;r++)for(int c=0;c<W_c;c++){
                 out_val(i,j)=max(out_val(i,j),in_val(i*H_c+r,j*W_c+c));
             }
+            mid_val(i,j)=out_val(i,j);
+            out_val(i,j)=f(out_val(i,j));
         }
     }
-    void update_w(double eta){
-        ;
-    }
-};
-template <const int H_in,const int W_in,const int H_c,const int W_c>
-class AvePoolLayer:public Layer{
-public:
-    static const int H_out=H_in/H_c,W_out=W_in/W_c;
-    static const int input_size=H_in*W_in,output_size=H_out*W_out;
-    Matrix<H_in,W_in> in_val;
-    Matrix<H_out,W_out> out_val,diff_val;
-    void clear(){}
-    void forward_solve(){
-        double temp=1.0/(H_c*W_c);
-        for(int i=0;i<H_out;i++)for(int j=0;j<W_out;j++){
-            out_val(i,j)=0;
-            for(int r=0;r<H_c;r++)for(int c=0;c<W_c;c++){
-                out_val(i,j)+=in_val(i*H_c+r,j*W_c+c)*temp;
-            }
-        }
-    }
-    void update_w(double eta){
-        ;
-    }
+    void update_w(double eta){}
 };
 
 template <const int N,const int M>
@@ -250,30 +235,13 @@ void push_backward(LayerType &A,MaxPoolLayer<H_in,W_in,H_c,W_c> &B,double eta){
     static const int H_out=H_in/H_c,W_out=W_in/W_c;
     int max_i=0,max_j=0;
     for(int i=0;i<H_out;i++)for(int j=0;j<W_out;j++){
-        for(int r=0;r<H_c;r++)for(int c=0;c<W_c;c++)if(B.out_val(i,j)==B.in_val(i*H_c+r,j*W_c+c)){
+        B.diff_val(i,j)*=B.f_(B.mid_val(i,j));
+        for(int r=0;r<H_c;r++)for(int c=0;c<W_c;c++)if(B.mid_val(i,j)==B.in_val(i*H_c+r,j*W_c+c)){
             max_i=i*H_c+r;
             max_j=j*W_c+c;
         }
         assert(max_i>=i*H_c && max_i<i*H_c+H_c && max_j>=j*W_c && max_j<j*W_c+W_c);
         A.diff_val(max_i,max_j)=B.diff_val(i,j);
-    }
-}
-
-/*???Layer -> AvePoolLayer*/
-template <class LayerType,const int H_in,const int W_in,const int H_c,const int W_c>
-void push_forward(LayerType &A,AvePoolLayer<H_in,W_in,H_c,W_c> &B){
-    assert(A.output_size==B.input_size);
-    for(int i=0;i<A.input_size;i++)B.in_val[i]=A.out_val[i];
-    B.forward_solve();
-}
-template <class LayerType,const int H_in,const int W_in,const int H_c,const int W_c>
-void push_backward(LayerType &A,AvePoolLayer<H_in,W_in,H_c,W_c> &B,double eta){
-    static const int H_out=H_in/H_c,W_out=W_in/W_c;
-    double temp=1.0/(H_c*W_c);
-    for(int i=0;i<H_out;i++)for(int j=0;j<W_out;j++){
-        for(int r=0;r<H_c;r++)for(int c=0;c<W_c;c++){
-            A.diff_val(i*H_c+r,j*W_c+c)+=B.diff_val(i,j)*temp;
-        }
     }
 }
 
@@ -350,9 +318,9 @@ namespace net1{
 }*/
 
 namespace net2{
-    double eta=0.05;
+    double eta=0.5;
     ConvLayer<28,28,5,5> C1;
-    AvePoolLayer<24,24,2,2> S2;
+    MaxPoolLayer<24,24,2,2> S2(sigmoid,sigmoid_diff);
     ActiveLayer<10> L3(sigmoid,sigmoid_diff);
     auto E3=full_connect(S2,L3);
     auto loss=mse;
@@ -385,10 +353,18 @@ namespace net2{
         Vector2Array(loss(y,y_),L3.diff_val);
         push_backward(S2,L3,E3,eta);
         push_backward(C1,S2,eta);
+        //C1.out_val.show();cout<<endl;
+        //S2.out_val.show();cout<<endl;
+        //for(int i=0;i<L3.output_size;i++)cout<<L3.out_val[i]<<" \n"[i+1==L3.output_size]; cout<<endl;
+        //S2.diff_val.show();cout<<endl;
+        //C1.diff_val.show();cout<<endl;
         /*更新权重*/
+        //C1.w.show();cout<<endl;
         C1.update_w(eta);
         S2.update_w(eta);
         L3.update_w(eta);
+        //C1.w.show();cout<<endl;
+        //C1.in_val.show();cout<<endl;
     }
 }
 
@@ -433,7 +409,7 @@ int main() {
     net2::init();
     //net2::predict(trainx.data[0]);
     judge(testx, testy);
-    ll epoch = 200, goal = 1;
+    ll epoch = 100000, goal = 1;
     rep(it, 1, epoch) {
         int idx = randint(0, split_position - 1);
         net2::train(trainx.data[idx], trainy.data[idx]);
