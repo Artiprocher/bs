@@ -127,7 +127,8 @@ public:
         }
     }
     void update_w(double eta){
-        for(int i=0;i<H_out;i++)for(int j=0;j<W_out;j++)if(fabs(diff_val(i,j))>(1e-8)){
+        for(int i=0;i<H_out;i++)for(int j=0;j<W_out;j++){
+            assert(!isnan(diff_val(i,j)));
             for(int r=0;r<H_c;r++)for(int c=0;c<W_c;c++){
                 w(r,c)-=eta*diff_val(i,j)*in_val(i+r,j+c);
             }
@@ -154,11 +155,32 @@ public:
         ;
     }
 };
+template <const int H_in,const int W_in,const int H_c,const int W_c>
+class AvePoolLayer:public Layer{
+public:
+    static const int H_out=H_in/H_c,W_out=W_in/W_c;
+    static const int input_size=H_in*W_in,output_size=H_out*W_out;
+    Matrix<H_in,W_in> in_val;
+    Matrix<H_out,W_out> out_val,diff_val;
+    void clear(){}
+    void forward_solve(){
+        double temp=1.0/(H_c*W_c);
+        for(int i=0;i<H_out;i++)for(int j=0;j<W_out;j++){
+            out_val(i,j)=0;
+            for(int r=0;r<H_c;r++)for(int c=0;c<W_c;c++){
+                out_val(i,j)+=in_val(i*H_c+r,j*W_c+c)*temp;
+            }
+        }
+    }
+    void update_w(double eta){
+        ;
+    }
+};
 
 template <const int N,const int M>
 class ComplateEdge{
 public:
-    double w[N][M],dw[N][M];
+    double w[N][M];
     /*随机初始化权重*/
     void init(double l,double r){
         for(int i=0;i<N;i++){
@@ -219,11 +241,12 @@ void push_backward(LayerType &A,ConvLayer<H_in,W_in,H_c,W_c> &B,double eta){
 /*???Layer -> MaxPoolLayer*/
 template <class LayerType,const int H_in,const int W_in,const int H_c,const int W_c>
 void push_forward(LayerType &A,MaxPoolLayer<H_in,W_in,H_c,W_c> &B){
-    for(int i=0;i<A.n;i++)B.in_val[i]=A.out_val[i];
+    assert(A.output_size==B.input_size);
+    for(int i=0;i<A.input_size;i++)B.in_val[i]=A.out_val[i];
     B.forward_solve();
 }
 template <class LayerType,const int H_in,const int W_in,const int H_c,const int W_c>
-void push_backward(LayerType &A,MaxPoolLayer<H_in,W_in,H_c,W_c> &B){
+void push_backward(LayerType &A,MaxPoolLayer<H_in,W_in,H_c,W_c> &B,double eta){
     static const int H_out=H_in/H_c,W_out=W_in/W_c;
     int max_i=0,max_j=0;
     for(int i=0;i<H_out;i++)for(int j=0;j<W_out;j++){
@@ -231,7 +254,26 @@ void push_backward(LayerType &A,MaxPoolLayer<H_in,W_in,H_c,W_c> &B){
             max_i=i*H_c+r;
             max_j=j*W_c+c;
         }
+        assert(max_i>=i*H_c && max_i<i*H_c+H_c && max_j>=j*W_c && max_j<j*W_c+W_c);
         A.diff_val(max_i,max_j)=B.diff_val(i,j);
+    }
+}
+
+/*???Layer -> AvePoolLayer*/
+template <class LayerType,const int H_in,const int W_in,const int H_c,const int W_c>
+void push_forward(LayerType &A,AvePoolLayer<H_in,W_in,H_c,W_c> &B){
+    assert(A.output_size==B.input_size);
+    for(int i=0;i<A.input_size;i++)B.in_val[i]=A.out_val[i];
+    B.forward_solve();
+}
+template <class LayerType,const int H_in,const int W_in,const int H_c,const int W_c>
+void push_backward(LayerType &A,AvePoolLayer<H_in,W_in,H_c,W_c> &B,double eta){
+    static const int H_out=H_in/H_c,W_out=W_in/W_c;
+    double temp=1.0/(H_c*W_c);
+    for(int i=0;i<H_out;i++)for(int j=0;j<W_out;j++){
+        for(int r=0;r<H_c;r++)for(int c=0;c<W_c;c++){
+            A.diff_val(i*H_c+r,j*W_c+c)+=B.diff_val(i,j)*temp;
+        }
     }
 }
 
@@ -275,29 +317,7 @@ namespace net1{
     }
 };
 
-CSV_Reader csv_reader;
-DataSet trainx,trainy,testx,testy;
-
-void show_image(const Vector &a){
-    rep(i,0,783){
-        cout<<(a[i]>0.5?"*":" ");
-        if((i+1)%28==0)cout<<endl;
-    }
-    cout<<endl;
-}
-void judge(const DataSet &testx, const DataSet &testy) {
-    int all = testx.data.size(), ac = 0;
-    rep(it, 0, all - 1) {
-        Vector a = net1::predict(testx.data[it]);
-        int ans = 0;
-        rep(i, 1, 9) {
-            if (a[i] > a[ans]) ans = i;
-        }
-        if (testy.data[it][ans] > 0.5) ac++;
-    }
-    cout << (ac * 1.0 / all) << endl;
-}
-void demo1(){
+/*void demo1(){
     // read data
     cout << "Reading data" << endl;
     csv_reader.open("train.csv");
@@ -327,27 +347,76 @@ void demo1(){
             goal++;
         }
     }
-}
+}*/
 
 namespace net2{
     double eta=0.05;
     ConvLayer<28,28,5,5> C1;
-    MaxPoolLayer<14,14,2,2> S2;
-    ActiveLayer<49> L3;
+    AvePoolLayer<24,24,2,2> S2;
+    ActiveLayer<10> L3(sigmoid,sigmoid_diff);
     auto E3=full_connect(S2,L3);
     auto loss=mse;
     void init(){
-        ;
+        cout<<fixed<<setprecision(2);
     }
     Vector predict(const Vector &x){
-        return x;
+        /*清理*/
+        C1.clear();
+        S2.clear();
+        L3.clear();
+        /*正向传值*/
+        each_index(i,x)C1.in_val[i]=x[i];
+        C1.forward_solve();
+        push_forward(C1,S2);
+        push_forward(S2,L3,E3);
+        /*导出结果*/
+        static Vector y(L3.output_size,0);
+        for(int i=0;i<L3.output_size;i++){
+            y[i]=L3.out_val[i];
+        }
+        //for(int i=0;i<28;i++)for(int j=0;j<28;j++)cout<<" #"[C1.in_val(i,j)>0.5]<<" \n"[j+1==28];cout<<endl;
+        //for(int i=0;i<24;i++)for(int j=0;j<24;j++)cout<<" #"[C1.out_val(i,j)>3.5]<<" \n"[j+1==24];
+        return y;
     }
     void train(const Vector &x,const Vector &y){
-        ;
+        /*正向传值*/
+        Vector y_=predict(x);
+        /*逆向传值*/
+        Vector2Array(loss(y,y_),L3.diff_val);
+        push_backward(S2,L3,E3,eta);
+        push_backward(C1,S2,eta);
+        /*更新权重*/
+        C1.update_w(eta);
+        S2.update_w(eta);
+        L3.update_w(eta);
     }
 }
 
+CSV_Reader csv_reader;
+DataSet trainx,trainy,testx,testy;
+
+void show_image(const Vector &a){
+    rep(i,0,783){
+        cout<<(a[i]>0.5?"*":" ");
+        if((i+1)%28==0)cout<<endl;
+    }
+    cout<<endl;
+}
+void judge(const DataSet &testx, const DataSet &testy) {
+    int all = testx.data.size(), ac = 0;
+    rep(it, 0, all - 1) {
+        Vector a = net2::predict(testx.data[it]);
+        int ans = 0;
+        rep(i, 1, 9) {
+            if (a[i] > a[ans]) ans = i;
+        }
+        if (testy.data[it][ans] > 0.5) ac++;
+    }
+    cout << (ac * 1.0 / all) << endl;
+}
+
 int main() {
+    // read data
     cout << "Reading data" << endl;
     csv_reader.open("train.csv");
     csv_reader.shuffle();
@@ -359,7 +428,24 @@ int main() {
     csv_reader.close();
     rep(i, 0, trainx.data.size() - 1) trainx.data[i] *= 1.0 / 255;
     rep(i, 0, testx.data.size() - 1) testx.data[i] *= 1.0 / 255;
-
+    // train
+    cout << "Training model" << endl;
+    net2::init();
+    //net2::predict(trainx.data[0]);
+    judge(testx, testy);
+    ll epoch = 200, goal = 1;
+    rep(it, 1, epoch) {
+        int idx = randint(0, split_position - 1);
+        net2::train(trainx.data[idx], trainy.data[idx]);
+        if (it * 100 >= epoch * goal) {
+            cout << it * 100.0 / epoch << "%" << endl;
+            if (goal % 10 == 0) {
+                cout << "accuracy:";
+                judge(testx, testy);
+            }
+            goal++;
+        }
+    }
     return 0;
 }
 /*

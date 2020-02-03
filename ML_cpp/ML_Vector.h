@@ -44,8 +44,8 @@ std::ostream &operator <<(std::ostream &out,const Vector &a){
 template <class fun> void each(Vector &a,fun op){
     each_index(i,a)op(a[i]);
 }
-void Vector2Array(const Vector &a,double *b){
-    for(auto i:a)*b=i,b++;
+template <class ArrayType>void Vector2Array(const Vector &a,ArrayType b){
+    each_index(i,a)b[i]=a[i];
 }
 
 class Tensor{
