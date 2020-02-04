@@ -29,6 +29,52 @@ class DataSet {
         }
         return *this;
     }
+    double mean(int c){
+        double ans=0;
+        int num=0;
+        for(int i=0;i<(int)data.size();i++){
+            if(!std::isnan(data[i][c])){
+                ans+=data[i][c];
+                num++;
+            }
+        }
+        return ans/num;
+    }
+    double std_dev(int c){
+        double ans=0,m=mean(c);
+        int num=0;
+        for(int i=0;i<(int)data.size();i++){
+            if(!std::isnan(data[i][c])){
+                ans+=(data[i][c]-m)*(data[i][c]-m);
+                num++;
+            }
+        }
+        return sqrt(ans/num);
+    }
+    double min(int c){
+        double ans=data[0][c];
+        for(int i=0;i<(int)data.size();i++)ans=std::min(ans,data[i][c]);
+        return ans;
+    }
+    double max(int c){
+        double ans=data[0][c];
+        for(int i=0;i<(int)data.size();i++)ans=std::max(ans,data[i][c]);
+        return ans;
+    }
+    void fill_nan_with_mean(){
+        int R=data.size(),C=data[0].size();
+        Vector m(C,0);
+        for(int i=0;i<C;i++)m[i]=mean(i);
+        for(int i=0;i<R;i++){
+            for(int j=0;j<C;j++){
+                if(std::isnan(data[i][j]))data[i][j]=m[j];
+            }
+        }
+    }
+    void min_max_normalization(int c){
+        double mi=min(c),ma=max(c);
+        for(int i=0;i<(int)data.size();i++)data[i][c]=(data[i][c]-mi)/(ma-mi);
+    }
     void show() const {
         static const int show_size = 5;
         std::cout << "row: " << data.size() << " col:" << data[0].size()
@@ -55,15 +101,15 @@ class CSV_Reader {
    private:
     std::ifstream file;
     std::vector<std::string> str_data;
+    std::vector< std::vector<std::string> > data;
     std::vector<std::string> index;
     int file_flag = 0;
 
    public:
-    bool isNumber(const std::string &s, int l, int r) {
-        if (r < l) return false;
+    bool isNumber(const std::string &s) {
         int point = 0;
-        for (int i = l; i <= r; i++) {
-            if (s[i] < '0' || s[i] > '9') {
+        for (int i = 0; i <= (int)s.size()-1; i++) {
+            if (!(s[i] >= '0' && s[i] <= '9') && s[i]!='.') {
                 return false;
             } else if (s[i] == '.') {
                 if (point == 1)
@@ -74,11 +120,11 @@ class CSV_Reader {
         }
         return true;
     }
-    double str2num(const std::string &s, int l, int r) {
+    double str2num(const std::string &s) {
         int point = 0, u = 0;
         double v = 0, w = 1.0;
-        for (int i = l; i <= r; i++) {
-            if (s[i] < '0' || s[i] > '9') {
+        for (int i = 0; i <= (int)s.size()-1; i++) {
+            if (!(s[i] >= '0' && s[i] <= '9') && s[i]!='.') {
                 std::cerr << "Not number." << std::endl;
                 return -1.0;
             } else if (s[i] == '.') {
@@ -122,27 +168,51 @@ class CSV_Reader {
             else
                 index.back() += c;
         }
-    }
-    void describe() {
-        int R = (int)str_data.size() - 1, C = 1;
-        for (auto i : str_data[0]) {
-            if (i == ',') C++;
-        }
-        std::cout << "row: " << R << " col: " << C << std::endl;
-        std::vector<int> number(C, 0);
+        //split
+        int R = (int)str_data.size() - 1;
+        data.resize(R);
         for (int i = 1; i <= R; i++) {
-            int last = 0, idx = 0;
+            int last = 0, idx = 0, flag=0;
             for (int j = 0; j <= (int)str_data[i].size(); j++) {
-                if (j == (int)str_data[i].size() || str_data[i][j] == ',') {
-                    number[idx] += isNumber(str_data[i], last, j - 1);
+                if(flag==1){
+                    if(str_data[i][j]=='\"')flag=0;
+                }else if(str_data[i][j]=='\"'){
+                    flag=1;
+                }else if (j == (int)str_data[i].size() || str_data[i][j] == ',') {
+                    data[i-1].push_back(str_data[i].substr(last,j-last));
                     last = j + 1;
                     idx++;
                 }
             }
         }
+    }
+    void describe() {
+        int R = (int)str_data.size() - 1, C = data[0].size();
+        std::cout << "row: " << R << " col: " << C << std::endl;
+        std::vector<int> number(C, 0);
+        std::unordered_map<std::string,int> num[C+1];
+        for (int i = 0; i < R; i++) {
+            for(int j=0;j<C;j++){
+                if(isNumber(data[i][j]))number[j]++;
+                num[j][data[i][j]]++;
+            }
+        }
         for (int i = 0; i < C; i++) {
-            std::cout << "col " << i << ": " << index[i] << " " << number[i]
-                      << " numbers." << std::endl;
+            std::cout << "col " << i << ": " << index[i] << std::endl;
+            std::cout << "     " << number[i] << " numbers  ";
+            std::cout << num[i].size() << " categories  ";
+            if(num[i][""]>0)std::cout << num[i][""] << " empty  ";
+            else num[i].erase("");
+            std::cout << std::endl;
+            std::cout<<"     {";
+            int j=1;
+            for(auto it=num[i].begin();it!=num[i].end();it++){
+                std::cout<<(it->first)<<", ";
+                j++;
+                if(j>4)break;
+            }
+            if(num[i].size()>4)std::cout<<"...";
+            std::cout<<"}"<<std::endl;
         }
     }
     void shuffle() {
@@ -151,44 +221,21 @@ class CSV_Reader {
     void export_number_data(int r1, int r2, int c1, int c2, DataSet &D) {
         D.resize(r2 - r1 + 1, c2 - c1 + 1);
         for (int i = r1; i <= r2; i++) {
-            int last = 0, idx = 0;
-            for (int j = 0; j <= (int)str_data[i].size(); j++) {
-                if (j == (int)str_data[i].size() || str_data[i][j] == ',') {
-                    if (idx >= c1 && idx <= c2) {
-                        D(i - r1, idx - c1) = str2num(str_data[i], last, j - 1);
-                    }
-                    last = j + 1;
-                    idx++;
-                }
+            for(int j=c1;j<=c2;j++){
+                D(i - r1, j - c1)=str2num(data[i][j]);
+                if(data[i][j].size()==0)D(i - r1, j - c1)=0.0/0.0;
             }
         }
     }
     void export_onehot_data(int r1, int r2, int c, DataSet &D) {
-        static std::vector<std::string> a;
-        a.resize(r2 - r1 + 1);
-        for (int i = r1; i <= r2; i++) {
-            int last = 0, idx = 0;
-            for (int j = 0; j <= (int)str_data[i].size(); j++) {
-                if (j == (int)str_data[i].size() || str_data[i][j] == ',') {
-                    if (idx == c) {
-                        a[i - r1] = str_data[i].substr(last, j - last);
-                        break;
-                    }
-                    last = j + 1;
-                    idx++;
-                }
-            }
-        }
         static std::set<std::string> se;
         static std::map<std::string, int> mp;
-        se.clear();
-        mp.clear();
-        for (auto s : a) se.insert(s);
-        int tot = 0;
+        for(int i=0;i<(int)data.size();i++)se.insert(data[i][c]);
+        int tot=0;
         for (auto s : se) mp[s] = tot++;
         D.resize(r2 - r1 + 1, tot);
-        for (int i = 0; i < r2 - r1; i++) {
-            D(i, mp[a[i]]) = 1.0;
+        for (int i = 0; i <= r2 - r1; i++) {
+            D(i, mp[data[r1+i][c]]) = 1.0;
         }
     }
     void close() {
