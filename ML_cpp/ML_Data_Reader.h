@@ -230,12 +230,19 @@ class CSV_Reader {
     void export_onehot_data(int r1, int r2, int c, DataSet &D) {
         static std::set<std::string> se;
         static std::map<std::string, int> mp;
+        se.clear();
+        mp.clear();
         for(int i=0;i<(int)data.size();i++)se.insert(data[i][c]);
         int tot=0;
         for (auto s : se) mp[s] = tot++;
         D.resize(r2 - r1 + 1, tot);
         for (int i = 0; i <= r2 - r1; i++) {
             D(i, mp[data[r1+i][c]]) = 1.0;
+        }
+    }
+    void print_column(int c){
+        for(int i=0;i<(int)data.size();i++){
+            std::cout<<data[i][c]<<std::endl;
         }
     }
     void close() {

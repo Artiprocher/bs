@@ -91,7 +91,7 @@ namespace net2{
 
 namespace net3{
     double eta=0.5;
-    ActiveLayer<42> input_layer;
+    ActiveLayer<25> input_layer;
     ActiveLayer<20> hidden_layer(sigmoid,sigmoid_diff);
     ActiveLayer<10> output_layer(sigmoid,sigmoid_diff);
     auto E1=full_connect(input_layer,hidden_layer);
@@ -235,10 +235,8 @@ void demo2(){
     }
 }
 void demo3(){
-    // read data
     cout << "Reading data" << endl;
     csv_reader.open("Titanic/train.csv");
-    //csv_reader.describe();
     csv_reader.shuffle();
     //Pclass
     csv_reader.export_onehot_data(0, 890, 2, x);
@@ -260,12 +258,12 @@ void demo3(){
     csv_reader.export_number_data(0, 890, 9, 9, t);
     t.fill_nan_with_mean();
     t.min_max_normalization(0);
+    x+=t;
     //Embarked
     csv_reader.export_onehot_data(0, 890, 11, t);
     x+=t;
     //Survived
     csv_reader.export_number_data(0, 890, 1, 1, y);
-
     cout << "Training model" << endl;
     net3::init();
     ll epoch = 1000000, goal = 1;
@@ -284,7 +282,7 @@ void demo3(){
 }
 
 int main() {
-    demo2();
+    demo3();
     return 0;
 }
 /*
