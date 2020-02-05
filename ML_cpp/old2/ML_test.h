@@ -1,12 +1,8 @@
 #include <bits/stdc++.h>
-#include "ML_Vector.h"
-#include "ML_Rand.h"
-#include "ML_Data_Reader.h"
+#include "ML_Model.h"
 #define rep(i, a, b) for (int i = (a); i <= (int)(b); i++)
 using namespace std;
 typedef long long ll;
-
-const double init_L=-0.5,init_R=0.5;
 
 /*智能数组 用[]使用一维索引 用()使用二维索引*/
 template <const int N,const int M>
@@ -60,7 +56,7 @@ public:
     function<double(double)> f=constant,f_=constant_diff;
     /*是否需要启用阈值 1:需要 0:不需要*/
     int threshold=0;
-    void reset_weight(double l=init_L,double r=init_R){
+    void reset_weight(double l=0.5,double r=0.5){
         for(int i=0;i<N;i++)c[i]=Rand(l,r);
     }
     ActiveLayer<N>(){reset_weight();}
@@ -68,8 +64,8 @@ public:
         threshold=1;
     }
     void clear(){
-        in_val.clear();
-        diff_val.clear();
+        for(int i=0;i<N;i++)in_val[i]=0;
+        for(int i=0;i<N;i++)diff_val[i]=0;
     }
     void forward_solve(){
         if(threshold==1){
@@ -94,7 +90,7 @@ public:
     SmartArray<H_in,W_in> in_val;
     SmartArray<H_out,W_out> out_val,diff_val;
     double c;
-    void reset_weight(double l=init_L,double r=init_R){
+    void reset_weight(double l=-0.5,double r=0.5){
         for(int i=0;i<H_c;i++){
             for(int j=0;j<W_c;j++){
                 w(i,j)=Rand(l,r);
@@ -158,7 +154,7 @@ public:
 template <class LayerType1,class LayerType2>
 ComplateEdge<LayerType1::output_size,LayerType2::input_size> full_connect(LayerType1 &A,LayerType2 &B){
     ComplateEdge<LayerType1::output_size,LayerType2::input_size> E;
-    E.reset_weight(init_L,init_R);
+    E.reset_weight(-0.5,0.5);
     return E;
 }
 
@@ -170,6 +166,7 @@ void push_forward(LayerType &A,ActiveLayer<M> &B,ComplateEdge<N,M> &E){
             B.in_val[j]+=A.out_val[i]*E(i,j);
         }
     }
+    B.forward_solve();
 }
 template <class LayerType,const int N,const int M>
 void push_backward(LayerType &A,ActiveLayer<M> &B,ComplateEdge<N,M> &E,double eta){
@@ -186,6 +183,7 @@ void push_backward(LayerType &A,ActiveLayer<M> &B,ComplateEdge<N,M> &E,double et
 template <class LayerType,const int H_in,const int W_in,const int H_c,const int W_c>
 void push_forward(LayerType &A,ConvLayer<H_in,W_in,H_c,W_c> &B){
     for(int i=0;i<H_in*W_in;i++)B.in_val[i]+=A.out_val[i];
+    B.forward_solve();
 }
 template <class LayerType,const int H_in,const int W_in,const int H_c,const int W_c>
 void push_backward(LayerType &A,ConvLayer<H_in,W_in,H_c,W_c> &B,double eta){
@@ -205,7 +203,8 @@ void push_backward(LayerType &A,ConvLayer<H_in,W_in,H_c,W_c> &B,double eta){
 template <class LayerType,const int H_in,const int W_in,const int H_c,const int W_c>
 void push_forward(LayerType &A,MaxPoolLayer<H_in,W_in,H_c,W_c> &B){
     assert(A.output_size==B.input_size);
-    for(int i=0;i<A.input_size;i++)B.in_val[i]+=A.out_val[i];
+    for(int i=0;i<A.input_size;i++)B.in_val[i]=A.out_val[i];
+    B.forward_solve();
 }
 template <class LayerType,const int H_in,const int W_in,const int H_c,const int W_c>
 void push_backward(LayerType &A,MaxPoolLayer<H_in,W_in,H_c,W_c> &B,double eta){

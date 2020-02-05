@@ -249,9 +249,6 @@ class CSV_Reader {
         if (file_flag == 0) {
             std::cerr << "No file is opened." << std::endl;
         }
-        str_data.clear();
-        data.clear();
-        index.clear();
         file.close();
     }
 };
