@@ -1,13 +1,13 @@
 #include "ML_Model.h"
 
 namespace net1{
-    double eta=0.05;
+    double eta=0.1;
     ActiveLayer<784> input_layer;
-    ActiveLayer<100> hidden_layer(sigmoid,sigmoid_diff);
+    ActiveLayer<30> hidden_layer(sigmoid,sigmoid_diff);
     ActiveLayer<10> output_layer(sigmoid,sigmoid_diff);
     auto E1=full_connect(input_layer,hidden_layer);
     auto E2=full_connect(hidden_layer,output_layer);
-    auto loss=crossEntropy;
+    auto loss=mse;
     void init(){
         ;
     }
@@ -68,7 +68,7 @@ void judge1(const DataSet &testx, const DataSet &testy) {
 void demo1(){
     // read data
     cout << "Reading data" << endl;
-    csv_reader.open("train.csv");
+    csv_reader.open("digit/train.csv");
     csv_reader.shuffle();
     int split_position = 30000;
     csv_reader.export_number_data(0, split_position-1, 1, 784, trainx);
@@ -80,16 +80,17 @@ void demo1(){
     rep(i, 0, testx.data.size() - 1) testx.data[i] *= 1.0 / 255;
     // train
     cout << "Training model" << endl;
+    cout<<fixed<<setprecision(6);
     net1::init();
     judge1(testx, testy);
-    ll epoch = 1000000, goal = 1;
+    ll epoch = 100000, goal = 1;
     rep(it, 1, epoch) {
         int idx = randint(0, split_position - 1);
         net1::train(trainx.data[idx], trainy.data[idx]);
         if (it * 100 >= epoch * goal) {
-            cout << it * 100.0 / epoch << "%" << endl;
-            if (goal % 10 == 0) {
-                cout << "accuracy:";
+            //cout << it * 100.0 / epoch << "%" << endl;
+            if (goal % 1 == 0) {
+                //cout << "accuracy:";
                 judge1(testx, testy);
             }
             goal++;
