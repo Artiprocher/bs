@@ -1,67 +1,69 @@
-#include <bits/stdc++.h>
-void quitf(std::string mes){
-    std::cerr<<mes<<std::endl;
-    exit(0);
-}
-#include "ML_Vector.h"
-#include "ML_Rand.h"
-#include "ML_Linear_Model.h"
-#include "ML_Data_Reader.h"
-#include "ML_test.h"
+#include "ML_Model.h"
+#define rep(i,a,b) for(int i=(int)a;i<=(int)b;i++)
+typedef long long ll;
 
 namespace net2{
-    const int num1=6;
+    const int num1=10;
     double eta=0.05;
-    ActiveLayer<784> I0;
+    DenseLayer<784> I0;
     ConvLayer<28,28,5,5> C1[num1];
     MaxPoolLayer<24,24,2,2> S2[num1];
-    ActiveLayer<10> L3(sigmoid,sigmoid_diff);
-    ComplateEdge<144,10> E3[num1];
-    auto loss=crossEntropy;
+    DenseLayer<144> D3[num1];
+    DenseLayer<10> L4;
+    ComplateEdge<144,10> D3_L4[num1];
+    auto loss=softmax_crossEntropy;
     void init(){
         //cout<<fixed<<setprecision(2);
-        for(int i=0;i<num1;i++)S2[i]=MaxPoolLayer<24,24,2,2>(sigmoid,sigmoid_diff);
-        for(int i=0;i<num1;i++)E3[i]=full_connect(S2[i],L3);
+        for(int i=0;i<num1;i++)D3[i]=DenseLayer<144>(sigmoid,sigmoid_diff);
+        for(int i=0;i<num1;i++)D3_L4[i]=full_connect(S2[i],L4);
     }
     Vector predict(const Vector &x){
-        /*清理*/
+        //清理
         I0.clear();
         for(int i=0;i<num1;i++)C1[i].clear();
         for(int i=0;i<num1;i++)S2[i].clear();
-        L3.clear();
-        /*正向传值*/
+        for(int i=0;i<num1;i++)D3[i].clear();
+        L4.clear();
+        //正向传值
         each_index(i,x)I0.out_val[i]=x[i];
         for(int i=0;i<num1;i++)push_forward(I0,C1[i]);
         for(int i=0;i<num1;i++)C1[i].forward_solve();
         for(int i=0;i<num1;i++)push_forward(C1[i],S2[i]);
         for(int i=0;i<num1;i++)S2[i].forward_solve();
-        for(int i=0;i<num1;i++)push_forward(S2[i],L3,E3[i]);
-        L3.forward_solve();
-        /*导出结果*/
-        static Vector y(L3.output_size,0);
-        for(int i=0;i<L3.output_size;i++){
-            y[i]=L3.out_val[i];
+        for(int i=0;i<num1;i++)push_forward(S2[i],D3[i]);
+        for(int i=0;i<num1;i++)D3[i].forward_solve();
+        for(int i=0;i<num1;i++)push_forward(D3[i],L4,D3_L4[i]);
+        L4.forward_solve();
+        //导出结果
+        static Vector y(L4.output_size,0);
+        for(int i=0;i<L4.output_size;i++){
+            y[i]=L4.out_val[i];
         }
         return y;
     }
     void train(const Vector &x,const Vector &y){
-        /*正向传值*/
+        //正向传值
         Vector y_=predict(x);
-        /*逆向传值*/
-        Vector2Array(loss(y,y_),L3.diff_val);
-        for(int i=0;i<num1;i++)push_backward(S2[i],L3,E3[i],eta);
-        for(int i=0;i<num1;i++)push_backward(C1[i],S2[i],eta);
-        for(int i=0;i<num1;i++)push_backward(I0,C1[i],eta);
-        /*更新权重*/
+        //逆向传值
+        Vector2Array(loss(y,y_),L4.in_diff);
+        L4.backward_solve();
+        for(int i=0;i<num1;i++)push_backward(D3[i],L4,D3_L4[i],eta);
+        for(int i=0;i<num1;i++)D3[i].backward_solve();
+        for(int i=0;i<num1;i++)push_backward(S2[i],D3[i]);
+        for(int i=0;i<num1;i++)S2[i].backward_solve();
+        for(int i=0;i<num1;i++)push_backward(C1[i],S2[i]);
+        for(int i=0;i<num1;i++)C1[i].backward_solve();
+        //更新权重
         I0.update_w(eta);
         for(int i=0;i<num1;i++)C1[i].update_w(eta);
         for(int i=0;i<num1;i++)S2[i].update_w(eta);
-        L3.update_w(eta);
+        for(int i=0;i<num1;i++)D3[i].update_w(eta);
+        L4.update_w(eta);
     }
 }
 
 CSV_Reader csv_reader;
-DataSet trainx,trainy,testx,testy;
+DataSet trainx,trainy,testx;
 
 void show_image(const Vector &a){
     rep(i,0,783){
@@ -87,31 +89,33 @@ void demo2(){
     cout << "Reading data" << endl;
     csv_reader.open("digit/train.csv");
     csv_reader.shuffle();
-    int split_position = 30000;
-    csv_reader.export_number_data(0, split_position-1, 1, 784, trainx);
-    csv_reader.export_onehot_data(0, split_position-1, 0, trainy);
-    csv_reader.export_number_data(split_position, 42000-1, 1, 784, testx);
-    csv_reader.export_onehot_data(split_position, 42000-1, 0, testy);
+    int all = 42000;
+    csv_reader.export_number_data(0, all-1, 1, 784, trainx);
+    csv_reader.export_onehot_data(0, all-1, 0, trainy);
     csv_reader.close();
     rep(i, 0, trainx.data.size() - 1) trainx.data[i] *= 1.0 / 255;
+    csv_reader.open("digit/test.csv");
+    csv_reader.export_number_data(0, 28000-1, 0, 783, testx);
     rep(i, 0, testx.data.size() - 1) testx.data[i] *= 1.0 / 255;
+    csv_reader.close();
     // train
     cout << "Training model" << endl;
     net2::init();
-    //net2::predict(trainx.data[0]);
-    judge2(testx, testy);
-    ll epoch = 100000, goal = 1;
-    rep(it, 1, epoch) {
-        int idx = randint(0, split_position - 1);
-        net2::train(trainx.data[idx], trainy.data[idx]);
-        if (it * 100 >= epoch * goal) {
-            cout << it * 100.0 / epoch << "%" << endl;
-            if (goal % 1 == 0) {
-                cout << "accuracy:";
-                judge2(testx, testy);
-            }
-            goal++;
+    rep(it,1,50){
+        int epoch = 10000;
+        rep(it, 1, epoch) {
+            int idx = randint(0, all - 1);
+            net2::train(trainx.data[idx], trainy.data[idx]);
         }
+        judge2(trainx, trainy);
+    }
+    std::ofstream fout;
+    fout.open("digit/result.txt", std::ios::out);
+    for(int i=0;i<28000;i++){
+        Vector y=net2::predict(testx.data[i]);
+        int ans=0;
+        for(int i=1;i<10;i++)if(y[i]>y[ans])ans=i;
+        fout<<ans<<endl;
     }
 }
 

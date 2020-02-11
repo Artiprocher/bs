@@ -1,10 +1,12 @@
 #include "ML_Model.h"
+#define rep(i,a,b) for(int i=(int)a;i<=(int)b;i++)
+typedef long long ll;
 
 namespace net3{
     double eta=0.5;
-    ActiveLayer<25> input_layer;
-    ActiveLayer<20> hidden_layer(sigmoid,sigmoid_diff);
-    ActiveLayer<10> output_layer(sigmoid,sigmoid_diff);
+    DenseLayer<25> input_layer;
+    DenseLayer<20> hidden_layer(sigmoid,sigmoid_diff);
+    DenseLayer<10> output_layer(sigmoid,sigmoid_diff);
     auto E1=full_connect(input_layer,hidden_layer);
     auto E2=full_connect(hidden_layer,output_layer);
     auto loss=mse;
@@ -33,8 +35,10 @@ namespace net3{
         /*正向传值*/
         Vector y_=predict(x);
         /*逆向传值*/
-        Vector2Array(loss(y,y_),output_layer.diff_val);
+        Vector2Array(loss(y,y_),output_layer.in_diff);
+        output_layer.backward_solve();
         push_backward(hidden_layer,output_layer,E2,eta);
+        hidden_layer.backward_solve();
         push_backward(input_layer,hidden_layer,E1,eta);
         /*更新权重*/
         hidden_layer.update_w(eta);
