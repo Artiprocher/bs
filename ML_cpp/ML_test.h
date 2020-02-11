@@ -95,11 +95,7 @@ public:
     SmartArray<H_out,W_out> out_val,diff_val;
     double c;
     void reset_weight(double l=init_L,double r=init_R){
-        for(int i=0;i<H_c;i++){
-            for(int j=0;j<W_c;j++){
-                w(i,j)=Rand(l,r);
-            }
-        }
+        w.reset_weight(l,r);
         c=Rand(l,r);
     }
     ConvLayer<H_in,W_in,H_c,W_c>(){reset_weight();}

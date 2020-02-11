@@ -1,4 +1,13 @@
-#include "ML_Model.h"
+#include <bits/stdc++.h>
+void quitf(std::string mes){
+    std::cerr<<mes<<std::endl;
+    exit(0);
+}
+#include "ML_Vector.h"
+#include "ML_Rand.h"
+#include "ML_Linear_Model.h"
+#include "ML_Data_Reader.h"
+#include "ML_test.h"
 
 namespace net2{
     const int num1=6;
@@ -76,7 +85,7 @@ void judge2(const DataSet &testx, const DataSet &testy) {
 void demo2(){
     // read data
     cout << "Reading data" << endl;
-    csv_reader.open("train.csv");
+    csv_reader.open("digit/train.csv");
     csv_reader.shuffle();
     int split_position = 30000;
     csv_reader.export_number_data(0, split_position-1, 1, 784, trainx);
@@ -97,7 +106,7 @@ void demo2(){
         net2::train(trainx.data[idx], trainy.data[idx]);
         if (it * 100 >= epoch * goal) {
             cout << it * 100.0 / epoch << "%" << endl;
-            if (goal % 10 == 0) {
+            if (goal % 1 == 0) {
                 cout << "accuracy:";
                 judge2(testx, testy);
             }
