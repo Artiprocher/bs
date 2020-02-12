@@ -61,6 +61,14 @@ function<double(double)> relu = [](double x) {
 function<double(double)> relu_diff = [](double x) {
     return x>0.0?1.0:0.0;
 };
+function<double(double)> Tanh = [](double x) {
+    double a=exp(x),b=exp(-x);
+    return (a-b)/(a+b);
+};
+function<double(double)> Tanh_diff = [](double x) {
+    double a=exp(x)+exp(-x);
+    return 2.0/(a*a);
+};
 class Activation{
 public:
     virtual void calc(double x[],double y[],int n);
