@@ -24,6 +24,10 @@ function<Vector(Vector,Vector)> mse=[](Vector y,Vector y_){
     each_index(i,y)y[i]=y_[i]-y[i];
     return y;
 };
+function<Vector(Vector,Vector)> mae=[](Vector y,Vector y_){
+    each_index(i,y)y[i]=(y[i]<y_[i])?1.0:-1.0;
+    return y;
+};
 function<Vector(Vector,Vector)> crossEntropy=[](Vector y,Vector y_){
     each_index(i,y)y[i]=-y[i]/y_[i]+(1-y[i])/(1-y_[i]);
     return y;

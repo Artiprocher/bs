@@ -75,6 +75,10 @@ class DataSet {
         double mi=min(c),ma=max(c);
         for(int i=0;i<(int)data.size();i++)data[i][c]=(data[i][c]-mi)/(ma-mi);
     }
+    void normalization(int c){
+        double m=mean(c),s=std_dev(c);
+        for(int i=0;i<(int)data.size();i++)data[i][c]=(data[i][c]-m)/s;
+    }
     void show() const {
         static const int show_size = 5;
         std::cout << "row: " << data.size() << " col:" << data[0].size()
@@ -106,9 +110,17 @@ class CSV_Reader {
     int file_flag = 0;
 
    public:
+    std::vector<int> size()const{
+        return (std::vector<int>){(int)data.size(),(int)data[0].size()};
+    }
     bool isNumber(const std::string &s) {
         int point = 0;
-        for (int i = 0; i <= (int)s.size()-1; i++) {
+        int start=0;
+        while(start<(int)s.size() && s[start]==' ')start++;
+        if(start==(int)s.size())return false;
+        if(s[start]=='-')start++;
+        for (int i = start; i <= (int)s.size()-1; i++) {
+            if(s[i]==' ')continue;
             if (!(s[i] >= '0' && s[i] <= '9') && s[i]!='.') {
                 return false;
             } else if (s[i] == '.') {
@@ -121,9 +133,13 @@ class CSV_Reader {
         return true;
     }
     double str2num(const std::string &s) {
-        int point = 0, u = 0;
-        double v = 0, w = 1.0;
-        for (int i = 0; i <= (int)s.size()-1; i++) {
+        int point = 0, u = 0, start = 0;
+        double v = 0, w = 1.0, sign = 1.0;
+        while(start<(int)s.size() && s[start]==' ')start++;
+        if(start==(int)s.size())return 0.0;
+        if(s[start]=='-')start++,sign=-1.0;
+        for (int i = start; i <= (int)s.size()-1; i++) {
+            if(s[i]==' ')continue;
             if (!(s[i] >= '0' && s[i] <= '9') && s[i]!='.') {
                 std::cerr << "Not number." << std::endl;
                 return -1.0;
@@ -144,7 +160,7 @@ class CSV_Reader {
                 }
             }
         }
-        return point ? v : (u * 1.0);
+        return (point ? v : (u * 1.0)) * sign;
     }
     void open(const char *file_name) {
         if (file_flag == 1) {
@@ -226,6 +242,7 @@ class CSV_Reader {
                 if(data[i][j].size()==0)D(i - r1, j - c1)=0.0/0.0;
             }
         }
+        std::cout<<"11111"<<std::endl;
     }
     void export_onehot_data(int r1, int r2, int c, DataSet &D) {
         static std::set<std::string> se;
