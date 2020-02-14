@@ -36,7 +36,7 @@ void push_backward(LayerType1 &L1,LayerType2 &L2,MultiplicationLayer<N> &L3){
 }
 
 namespace LSTM{
-    const int n=1,m=3,k=1;
+    const int n=144,m=1,k=1;
     double eta=0.05;
     DenseLayer<n> X;
     DenseLayer<m> H0,D[4],C0,C2,C3;
@@ -56,6 +56,12 @@ namespace LSTM{
         H1_Y=full_connect(H1,Y);
         Y.threshold_flag=1;Y.reset_weight();
         C3=DenseLayer<m>(Tanh,Tanh_diff);
+        C0.out_val.reset_weight(0,1.0);
+        H0.out_val.reset_weight(0,1.0);
+    }
+    void show(){
+        cout<<"H0:";H0.in_val.show();
+        cout<<"C0:";C0.in_val.show();
     }
     void recurrent(){
         C0.clear();
@@ -113,20 +119,120 @@ namespace LSTM{
     }
 }
 
+namespace SimpleRNN{
+    const double eta=0.05;
+    class cell{
+    public:
+        static const int n=3,m=32,k=1;
+        DenseLayer<n> X;
+        DenseLayer<m> H;
+        DenseLayer<k> Y;
+        ComplateEdge<n,m> X_H=full_connect(X,H);
+        ComplateEdge<m,k> H_Y=full_connect(H,Y);
+        cell(){
+            H=DenseLayer<m>(sigmoid,sigmoid_diff);
+            Y=DenseLayer<k>(constant,constant_diff);
+        }
+        void clear(){
+            X.clear();
+            H.clear();
+            Y.clear();
+        }
+        void show(){
+            cout<<"  X_H"<<endl;
+            X_H.show();
+            cout<<"  H_Y"<<endl;
+            H_Y.show();
+        }
+        void forward_disseminate(){
+            X.forward_solve();
+            push_forward(X,H,X_H);
+            H.forward_solve();
+            push_forward(H,Y,H_Y);
+            Y.forward_solve();
+        }
+        void backward_disseminate(){
+            Y.backward_solve();
+            push_backward(H,Y,H_Y,eta);
+            H.backward_solve();
+            push_backward(X,H,X_H,eta);
+        }
+        void update_w(){
+            X.update_w(eta);
+            H.update_w(eta);
+            Y.update_w(eta);
+        }
+    };
+    const int timestep=4;
+    cell c[timestep];
+    auto loss=mse;
+    void init(){
+        ;
+    }
+    vector<Vector> predict(const vector<Vector> &vx){
+        assert(vx.size()==timestep);
+        auto last=c[1].H.out_val;
+        for(int i=0;i<timestep;i++)c[i].clear();
+        c[0].H.in_val=last;
+        for(int i=0;i<timestep;i++)Vector2Array(vx[i],c[i].X.in_val);
+        for(int i=0;i<timestep;i++){
+            if(i>0){
+                push_forward(c[i-1].H,c[i].H);
+            }
+            c[i].forward_disseminate();
+        }
+        vector<Vector> vy;
+        for(int i=0;i<timestep;i++)vy.emplace_back(Array2Vector(c[i].Y.out_val));
+        return vy;
+    }
+    void train(const vector<Vector> &vx,const vector<Vector> &vy){
+        assert(vx.size()==timestep && vy.size()==timestep);
+        vector<Vector> y_=predict(vx);
+        for(int i=0;i<timestep;i++)Vector2Array(loss(vy[i],y_[i]),c[i].Y.in_diff);
+        for(int i=timestep-1;i>=0;i--){
+            c[i].backward_disseminate();
+            if(i>0){
+                push_backward(c[i].H,c[i-1].H);
+            }
+        }
+        for(int i=0;i<timestep;i++)c[i].update_w();
+        for(int i=1;i<timestep;i++){
+            c[0].H.c+=c[i].H.c;c[0].Y.c+=c[i].Y.c;
+            c[0].X_H+=c[i].X_H;c[0].H_Y+=c[i].H_Y;
+        }
+        static const double temp=1.0/timestep;
+        c[0].H.c*=temp;
+        c[0].Y.c*=temp;
+        c[0].X_H*=temp;
+        c[0].H_Y*=temp;
+        for(int i=1;i<timestep;i++)c[i]=c[0];
+    }
+}
+
 double f(int x){
     return (double)(x%7);
 }
-#define NET LSTM
+Vector get_x(int x){
+    return Vector({f(x-3),f(x-2),f(x-1)});
+}
+vector<Vector> get_vx(int x){
+    return (vector<Vector>){get_x(x-3),get_x(x-2),get_x(x-1),get_x(x)};
+}
+vector<Vector> get_vy(int x){
+    return (vector<Vector>){{f(x-3)},{f(x-2)},{f(x-1)},{f(x)}};
+}
+#define NET SimpleRNN
 void demo1(){
     NET::init();
     cout<<fixed<<setprecision(2);
-    int epoch=100000;
+    int epoch=10000;
     for(int i=10;i<epoch;i++){
-        NET::train({f(i-1)},{f(i)});
+        NET::train(get_vx(i),get_vy(i));
     }
     for(int i=epoch;i<epoch+15;i++){
-        cout<<f(i)<<"  "<<NET::predict({f(i-1)})<<endl;
+        cout<<f(i)<<"  "<<NET::predict(get_vx(i)).back()<<endl;
     }
+    //NET::c[0].show();
 }
 CSV_Reader csv_reader;
 DataSet data;
@@ -134,7 +240,7 @@ double real_val(double x){
     double m=10.3808630941,s=8.3260192097;
     return x*s+m;
 }
-void demo(){
+/*void demo(){
     csv_reader.open("weather/weather.csv");
     //csv_reader.describe();
     int all=csv_reader.size()[0];
@@ -161,7 +267,8 @@ void demo(){
     }
     cout<<"loss="<<loss<<endl;
     cout<<"fake_loss="<<fake_loss<<endl;
-}
+    NET::show();
+}*/
 
 int main() {
     demo1();

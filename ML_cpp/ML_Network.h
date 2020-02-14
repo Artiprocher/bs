@@ -11,12 +11,20 @@ template <const int N,const int M>
 class SmartArray{
 public:
     double data[N*M];
-    void show(){for(int i=0;i<N;i++)for(int j=0;j<M;j++)std::cout<<data[i*M+j]<<",\n"[j+1==M];}
     void clear(){for(int i=0;i<N*M;i++)data[i]=0;}
+    SmartArray<N,M>(){clear();}
+    void show(){for(int i=0;i<N;i++)for(int j=0;j<M;j++)std::cout<<data[i*M+j]<<",\n"[j+1==M];}
     double& operator [] (int x){return data[x];}
     double& operator () (int x,int y){return data[x*M+y];}
     void reset_weight(double l,double r){for(int i=0;i<N*M;i++)data[i]=Rand(l,r);}
+    void operator += (const SmartArray<N,M> &b){for(int i=0;i<N*M;i++)data[i]+=b.data[i];}
+    void operator *= (const SmartArray<N,M> &b){for(int i=0;i<N*M;i++)data[i]*=b.data[i];}
+    void operator += (const double &b){for(int i=0;i<N*M;i++)data[i]+=b;}
+    void operator *= (const double &b){for(int i=0;i<N*M;i++)data[i]*=b;}
+    Vector Array2Vector()const{return Vector(data,data+N*M);}
 };
+template <const int N,const int M>
+Vector Array2Vector(const SmartArray<N,M> &a){return Vector(a.data,a.data+N*M);}
 #define ComplateEdge SmartArray
 
 /*损失函数(导数)*/
