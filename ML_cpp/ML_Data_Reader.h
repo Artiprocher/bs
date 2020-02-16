@@ -242,7 +242,6 @@ class CSV_Reader {
                 if(data[i][j].size()==0)D(i - r1, j - c1)=0.0/0.0;
             }
         }
-        std::cout<<"11111"<<std::endl;
     }
     void export_onehot_data(int r1, int r2, int c, DataSet &D) {
         static std::set<std::string> se;

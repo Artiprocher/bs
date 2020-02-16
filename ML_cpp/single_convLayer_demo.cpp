@@ -63,7 +63,7 @@ namespace net2{
 }
 
 CSV_Reader csv_reader;
-DataSet trainx,trainy,testx;
+DataSet trainx,trainy,testx,testy;
 
 void show_image(const Vector &a){
     rep(i,0,783){
@@ -118,9 +118,36 @@ void demo2(){
         fout<<ans<<endl;
     }
 }
+void demo(){
+    // read data
+    cout << "Reading data" << endl;
+    csv_reader.open("digit/train.csv");
+    csv_reader.shuffle();
+    int split_position = 30000;
+    csv_reader.export_number_data(0, split_position-1, 1, 784, trainx);
+    csv_reader.export_onehot_data(0, split_position-1, 0, trainy);
+    csv_reader.export_number_data(split_position, 42000-1, 1, 784, testx);
+    csv_reader.export_onehot_data(split_position, 42000-1, 0, testy);
+    csv_reader.close();
+    rep(i, 0, trainx.data.size() - 1) trainx.data[i] *= 1.0 / 255;
+    rep(i, 0, testx.data.size() - 1) testx.data[i] *= 1.0 / 255;
+    // train
+    cout << "Training model" << endl;
+    net2::init();
+    //net2::predict(trainx.data[0]);
+    judge2(testx, testy);
+    while(1){
+        ll epoch = 1000;
+        rep(it, 1, epoch) {
+            int idx = randint(0, split_position - 1);
+            net2::train(trainx.data[idx], trainy.data[idx]);
+        }
+        judge2(testx, testy);
+    }
+}
 
 int main() {
-    demo2();
+    demo();
     return 0;
 }
 /*

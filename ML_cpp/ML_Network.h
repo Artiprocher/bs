@@ -4,7 +4,7 @@
 #include "ML_Data_Reader.h"
 using namespace std;
 
-const double init_L=-0.5,init_R=0.5;
+const double init_L=-0.2,init_R=0.2;
 
 //智能数组 用[]使用一维索引 用()使用二维索引
 template <const int N,const int M>
@@ -25,7 +25,10 @@ public:
 };
 template <const int N,const int M>
 Vector Array2Vector(const SmartArray<N,M> &a){return Vector(a.data,a.data+N*M);}
-#define ComplateEdge SmartArray
+
+template <const int N,const int M>
+class ComplateEdge:public SmartArray<N,M>{};
+//#define ComplateEdge SmartArray
 
 /*损失函数(导数)*/
 function<Vector(Vector,Vector)> mse=[](Vector y,Vector y_){
@@ -262,4 +265,15 @@ void push_backward(LayerType1 &A,LayerType2 &B,ComplateEdge<LayerType1::output_s
             E(i,j)-=eta*B.out_diff[j]*A.out_val[i];
         }
     }
+}
+template<class LayerType1,class LayerType2>
+SmartArray<LayerType1::output_size,LayerType2::input_size> lazy_push_backward(LayerType1 &A,LayerType2 &B,ComplateEdge<LayerType1::output_size,LayerType2::input_size> &E,double eta){
+    static SmartArray<LayerType1::output_size,LayerType2::input_size> dw;
+    for(int j=0;j<LayerType2::input_size;j++){
+        for(int i=0;i<LayerType1::output_size;i++){
+            A.in_diff[i]+=B.out_diff[j]*E(i,j);
+            dw(i,j)=eta*B.out_diff[j]*A.out_val[i];
+        }
+    }
+    return dw;
 }
