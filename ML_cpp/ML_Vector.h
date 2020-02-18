@@ -30,6 +30,7 @@ double Dot(const Vector &a,const Vector &b){
     each_index(i,a)ans+=a[i]*b[i];
     return ans;
 }
+Vector connect(const Vector &a,const Vector &b){Vector c=a;c.insert(c.end(),b.begin(),b.end());return c;}
 double sum(const Vector &a){return std::accumulate(a.begin(),a.end(),0.0);}
 std::istream &operator >>(std::istream &in,Vector &a){double x;in>>x;a.push_back(x);return in;}
 std::ostream &operator <<(std::ostream &out,const Vector &a){

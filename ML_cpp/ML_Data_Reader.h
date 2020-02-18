@@ -75,7 +75,7 @@ class DataSet {
         double mi=min(c),ma=max(c);
         for(int i=0;i<(int)data.size();i++)data[i][c]=(data[i][c]-mi)/(ma-mi);
     }
-    void normalization(int c){
+    void zscore_normalization(int c){
         double m=mean(c),s=std_dev(c);
         for(int i=0;i<(int)data.size();i++)data[i][c]=(data[i][c]-m)/s;
     }
@@ -102,14 +102,12 @@ class DataSet {
 };
 
 class CSV_Reader {
-   private:
+   public:
     std::ifstream file;
     std::vector<std::string> str_data;
     std::vector< std::vector<std::string> > data;
     std::vector<std::string> index;
     int file_flag = 0;
-
-   public:
     std::vector<int> size()const{
         return (std::vector<int>){(int)data.size(),(int)data[0].size()};
     }

@@ -140,7 +140,10 @@ public:
     }
     void update_w(double eta){
         if(threshold_flag==1){
-            for(int i=0;i<N;i++)c[i]-=eta*out_diff[i];
+            for(int i=0;i<N;i++){
+                c[i]-=eta*out_diff[i];
+                assert(!isnan(c[i]) && !isinf(c[i]));
+            }
         }
     }
 };
@@ -230,6 +233,28 @@ public:
     void update_w(double eta){}
 };
 
+//乘法层
+template <const int N>
+class MultiplicationLayer:public Layer{
+public:
+    static const int input_size=N,output_size=N;
+    SmartArray<1,N> A,B,out_val;
+    SmartArray<1,N> in_diff,A_diff,B_diff;
+    void clear(){
+        A.clear();
+        B.clear();
+        in_diff.clear();
+    }
+    void forward_solve(){
+        for(int i=0;i<N;i++)out_val[i]=A[i]*B[i];
+    }
+    void backward_solve(){
+        for(int i=0;i<N;i++)A_diff[i]=in_diff[i]*B[i];
+        for(int i=0;i<N;i++)B_diff[i]=in_diff[i]*A[i];
+    }
+    void update_w(double eta){}
+};
+
 //正向传播
 template<class LayerType1,class LayerType2>
 void push_forward(LayerType1 &A,LayerType2 &B){
@@ -266,14 +291,16 @@ void push_backward(LayerType1 &A,LayerType2 &B,ComplateEdge<LayerType1::output_s
         }
     }
 }
-template<class LayerType1,class LayerType2>
-SmartArray<LayerType1::output_size,LayerType2::input_size> lazy_push_backward(LayerType1 &A,LayerType2 &B,ComplateEdge<LayerType1::output_size,LayerType2::input_size> &E,double eta){
-    static SmartArray<LayerType1::output_size,LayerType2::input_size> dw;
-    for(int j=0;j<LayerType2::input_size;j++){
-        for(int i=0;i<LayerType1::output_size;i++){
-            A.in_diff[i]+=B.out_diff[j]*E(i,j);
-            dw(i,j)=eta*B.out_diff[j]*A.out_val[i];
-        }
-    }
-    return dw;
+//乘法层传播
+template <class LayerType1,class LayerType2,const int N>
+void push_forward(LayerType1 &L1,LayerType2 &L2,MultiplicationLayer<N> &L3){
+    assert(LayerType1::output_size==N && LayerType2::output_size==N);
+    for(int i=0;i<N;i++)L3.A[i]+=L1.out_val[i];
+    for(int i=0;i<N;i++)L3.B[i]+=L2.out_val[i];
+}
+template <class LayerType1,class LayerType2,const int N>
+void push_backward(LayerType1 &L1,LayerType2 &L2,MultiplicationLayer<N> &L3){
+    assert(LayerType1::output_size==N && LayerType2::output_size==N);
+    for(int i=0;i<N;i++)L1.in_diff[i]+=L3.A_diff[i];
+    for(int i=0;i<N;i++)L2.in_diff[i]+=L3.B_diff[i];
 }

@@ -2,43 +2,10 @@
 #define rep(i,a,b) for(int i=(int)a;i<=(int)b;i++)
 typedef long long ll;
 
-template <const int N>
-class MultiplicationLayer:public Layer{
-public:
-    static const int input_size=N,output_size=N;
-    SmartArray<1,N> A,B,out_val;
-    SmartArray<1,N> in_diff,A_diff,B_diff;
-    void clear(){
-        A.clear();
-        B.clear();
-        in_diff.clear();
-    }
-    void forward_solve(){
-        for(int i=0;i<N;i++)out_val[i]=A[i]*B[i];
-    }
-    void backward_solve(){
-        for(int i=0;i<N;i++)A_diff[i]=in_diff[i]*B[i];
-        for(int i=0;i<N;i++)B_diff[i]=in_diff[i]*A[i];
-    }
-    void update_w(double eta){}
-};
-template <class LayerType1,class LayerType2,const int N>
-void push_forward(LayerType1 &L1,LayerType2 &L2,MultiplicationLayer<N> &L3){
-    assert(LayerType1::output_size==N && LayerType2::output_size==N);
-    for(int i=0;i<N;i++)L3.A[i]+=L1.out_val[i];
-    for(int i=0;i<N;i++)L3.B[i]+=L2.out_val[i];
-}
-template <class LayerType1,class LayerType2,const int N>
-void push_backward(LayerType1 &L1,LayerType2 &L2,MultiplicationLayer<N> &L3){
-    assert(LayerType1::output_size==N && LayerType2::output_size==N);
-    for(int i=0;i<N;i++)L1.in_diff[i]+=L3.A_diff[i];
-    for(int i=0;i<N;i++)L2.in_diff[i]+=L3.B_diff[i];
-}
-
 namespace SimpleRNN{
-    const int n=5,m=32,k=1;
-    const int timestep=20,epoch=10;
-    const double eta=0.05,eta_=eta*timestep;
+    const int n=30,m=20,k=1;
+    const int timestep=40;
+    const double eta=0.05,eta_=eta;
     auto loss=mse;
     class cell{
     public:
@@ -85,9 +52,7 @@ namespace SimpleRNN{
     void init(){}
     vector<Vector> predict(const vector<Vector> &vx){
         assert(vx.size()==timestep);
-        //auto last=c[1].H.out_val;
         for(int i=0;i<timestep;i++)c[i].clear();
-        //c[0].H.in_val=last;
         for(int i=0;i<timestep;i++)Vector2Array(vx[i],c[i].X.in_val);
         for(int i=0;i<timestep;i++){
             if(i>0)push_forward(c[i-1].H,c[i].H,c[i-1].H_H);
@@ -99,57 +64,34 @@ namespace SimpleRNN{
     }
     void train(const vector<Vector> &vx,const vector<Vector> &vy){
         assert(vx.size()==timestep && vy.size()==timestep);
-        for(int it=0;it<10;it++){
-            vector<Vector> y_=predict(vx);
-            //沿时间轴逆向传播
-            for(int i=0;i<timestep;i++)Vector2Array(loss(vy[i],y_[i]),c[i].Y.in_diff);
-            for(int i=timestep-1;i>=0;i--){
-                c[i].backward_disseminate();
-                if(i>0)push_backward(c[i-1].H,c[i].H,c[i-1].H_H,eta_);
-            }
-            //更新权重
-            for(int i=0;i<timestep;i++)c[i].update_w();
-            for(int i=1;i<timestep;i++){
-                c[0].H.c+=c[i].H.c;c[0].Y.c+=c[i].Y.c;
-                c[0].X_H+=c[i].X_H;c[0].H_Y+=c[i].H_Y;
-                if(i!=timestep-1)c[0].H_H+=c[i].H_H;
-            }
-            static const double temp=1.0/timestep;
-            c[0].H.c*=temp;
-            c[0].Y.c*=temp;
-            c[0].X_H*=temp;
-            c[0].H_Y*=temp;
-            c[0].H_H*=1.0/(timestep-1);
-            for(int i=1;i<timestep;i++)c[i]=c[0];
+        vector<Vector> y_=predict(vx);
+        //沿时间轴逆向传播
+        for(int i=0;i<timestep;i++)Vector2Array(loss(vy[i],y_[i]),c[i].Y.in_diff);
+        for(int i=timestep-1;i>=0;i--){
+            c[i].backward_disseminate();
+            if(i>0)push_backward(c[i-1].H,c[i].H,c[i-1].H_H,eta_);
         }
-    }
-    template <class fun>
-    void train_with_sequence(fun &f,int L,int R){
-        vector<Vector> vx(timestep,Vector(n,0)),vy(timestep,Vector(k,0));
-        for(int l=L+n,r=l+timestep-1;r<=R;l++,r++){
-            for(int i=l;i<=r;i++){
-                for(int j=0;j<n;j++)vx[i-l][j]=f(i-n+j);
-                vy[i-l]=(Vector){f(i)};
-            }
-            train(vx,vy);
-            if((r-L)%((R-L)/100)==0)cout<<(r-L)*100.0/(R-L)<<"%"<<endl;
+        //更新权重
+        for(int i=0;i<timestep;i++)c[i].update_w();
+        for(int i=1;i<timestep;i++){
+            c[0].H.c+=c[i].H.c;c[0].Y.c+=c[i].Y.c;
+            c[0].X_H+=c[i].X_H;c[0].H_Y+=c[i].H_Y;
+            if(i!=timestep-1)c[0].H_H+=c[i].H_H;
         }
-    }
-    template <class fun>
-    Vector predict(fun &f,int p){
-        vector<Vector> vx(timestep,Vector(n,0));
-        int l=p-timestep+1,r=p;
-        for(int i=l;i<=r;i++){
-            for(int j=0;j<n;j++)vx[i-l][j]=f(i-n+j);
-        }
-        return predict(vx).back();
+        static const double temp=1.0/timestep;
+        c[0].H.c*=temp;
+        c[0].Y.c*=temp;
+        c[0].X_H*=temp;
+        c[0].H_Y*=temp;
+        c[0].H_H*=1.0/(timestep-1);
+        for(int i=1;i<timestep;i++)c[i]=c[0];
     }
 }
 
 namespace LSTM{
-    const int n=5,m=32,k=1;
-    const int timestep=20,epoch=20;
-    const double eta=0.05,eta_=eta*timestep;
+    const int n=30,m=20,k=1;
+    const int timestep=40;
+    const double eta=0.05,eta_=eta;
     auto loss=mse;
     class cell{
     public:
@@ -233,95 +175,133 @@ namespace LSTM{
     void train(const vector<Vector> &vx,const vector<Vector> &vy){
         assert(vx.size()==timestep && vy.size()==timestep);
         assert(vx[0].size()==n && vy[0].size()==k);
-        for(int it=0;it<epoch;it++){
-            vector<Vector> y_=predict(vx);
-            //沿时间轴逆向传播
-            for(int i=0;i<timestep;i++)Vector2Array(loss(vy[i],y_[i]),c[i].Y.in_diff);
-            for(int i=timestep-1;i>=0;i--){
-                c[i].backward_disseminate();
-                if(i>0){
-                    push_backward(c[i-1].H1,c[i].H0);
-                    push_backward(c[i-1].C2,c[i].C0);
-                }
+        vector<Vector> y_=predict(vx);
+        //沿时间轴逆向传播
+        for(int i=0;i<timestep;i++)Vector2Array(loss(vy[i],y_[i]),c[i].Y.in_diff);
+        for(int i=timestep-1;i>=0;i--){
+            c[i].backward_disseminate();
+            if(i>0){
+                push_backward(c[i-1].H1,c[i].H0);
+                push_backward(c[i-1].C2,c[i].C0);
             }
-            //更新权重
-            for(int i=0;i<timestep;i++)c[i].update_w();
-            for(int i=1;i<timestep;i++){
-                for(int j=0;j<4;j++){
-                    c[0].X_D[j]+=c[i].X_D[j];
-                    c[0].H_D[j]+=c[i].H_D[j];
-                    c[0].D[j].c+=c[i].D[j].c;
-                }
-                c[0].C3.c+=c[i].C3.c;
-                c[0].H1_Y+=c[i].H1_Y;
-                c[0].Y.c+=c[i].Y.c;
-            }
-            static const double temp=1.0/timestep;
+        }
+        //更新权重
+        for(int i=0;i<timestep;i++)c[i].update_w();
+        for(int i=1;i<timestep;i++){
             for(int j=0;j<4;j++){
-                c[0].X_D[j]*=temp;
-                c[0].H_D[j]*=temp;
-                c[0].D[j].c*=temp;
+                c[0].X_D[j]+=c[i].X_D[j];
+                c[0].H_D[j]+=c[i].H_D[j];
+                c[0].D[j].c+=c[i].D[j].c;
             }
-            c[0].C3.c*=temp;
-            c[0].H1_Y*=temp;
-            c[0].Y.c*=temp;
-            for(int i=1;i<timestep;i++)c[i]=c[0];
+            c[0].C3.c+=c[i].C3.c;
+            c[0].H1_Y+=c[i].H1_Y;
+            c[0].Y.c+=c[i].Y.c;
         }
-    }
-    template <class fun>
-    void train_with_sequence(fun &f,int L,int R){
-        vector<Vector> vx(timestep,Vector(n,0)),vy(timestep,Vector(k,0));
-        for(int l=L+n,r=l+timestep-1;r<=R;l++,r++){
-            for(int i=l;i<=r;i++){
-                for(int j=0;j<n;j++)vx[i-l][j]=f(i-n+j);
-                vy[i-l]=(Vector){f(i)};
-            }
-            train(vx,vy);
-            if((r-L)%((R-L)/100)==0)cout<<(r-L)*100.0/(R-L)<<"%"<<endl;
+        static const double temp=1.0/timestep;
+        for(int j=0;j<4;j++){
+            c[0].X_D[j]*=temp;
+            c[0].H_D[j]*=temp;
+            c[0].D[j].c*=temp;
         }
-    }
-    template <class fun>
-    Vector predict(fun &f,int p){
-        vector<Vector> vx(timestep,Vector(n,0));
-        int l=p-timestep+1,r=p;
-        for(int i=l;i<=r;i++){
-            for(int j=0;j<n;j++)vx[i-l][j]=f(i-n+j);
-        }
-        return predict(vx).back();
+        c[0].C3.c*=temp;
+        c[0].H1_Y*=temp;
+        c[0].Y.c*=temp;
+        for(int i=1;i<timestep;i++)c[i]=c[0];
     }
 }
 
 #define NET LSTM
 CSV_Reader csv_reader;
-DataSet data;
-double f(int x){
-    //return (double)(x%7);
-    return data(x,0);
-}
-void demo(){
-    //read data
-    csv_reader.open("weather/weather.csv");
-    int all=csv_reader.size()[0];
-    csv_reader.export_number_data(0,all-1,2,2,data);
-    data.normalization(0);
-    //train
-    int train=200000,test=9000;
-    assert(train+test<all);
-    NET::init();
-    NET::train_with_sequence(f,0,train);
-    //test
-    double loss=0,baseline_loss=0;
-    for(int i=train+1;i<=train+test;i++){
-        double y=f(i),y_=NET::predict(f,i)[0];
-        loss+=abs(y-y_);
-        baseline_loss+=abs(y-f(i-1));
+
+namespace SINGLE_LSTM_DEMO{
+    DataSet data;
+    double f(int x){
+        return data(x,0);
     }
-    cout<<"loss="<<loss<<endl;
-    cout<<"baseline_loss="<<baseline_loss<<endl;
+    vector<Vector> get_vx(int l,int r){
+        vector<Vector> vx(NET::timestep,Vector(NET::n,0));
+        for(int i=l;i<=r;i++){
+            for(int j=0;j<NET::n;j++)vx[i-l][j]=f(i-NET::n+j);
+        }
+        return vx;
+    }
+    vector<Vector> get_vy(int l,int r){
+        vector<Vector> vy(NET::timestep,Vector(NET::k,0));
+        for(int i=l;i<=r;i++)vy[i-l]=(Vector){f(i)};
+        return vy;
+    }
+    void demo(){
+        //read data
+        csv_reader.open("weather/beijing_data.csv");
+        int all=csv_reader.size()[0];
+        csv_reader.export_number_data(0,all-1,7,7,data);
+        cout<<fixed<<setprecision(6)<<data.mean(0)<<" "<<data.std_dev(0)<<endl;
+        data.zscore_normalization(0);
+        //train
+        int train=34000,test=2000,epoch=200000;
+        for(int it=1;it<=epoch;it++){
+            int l=randint(NET::n,train-NET::timestep),r=l+NET::timestep-1;
+            NET::train(get_vx(l,r),get_vy(l,r));
+            if(it%(epoch/100)==0)cout<<it*100.0/epoch<<"%"<<endl;
+        }
+        //test
+        ofstream fout;
+        fout.open("weather/predict.csv",ios::out);
+        double loss=0,baseline_loss=0;
+        for(int i=train+1;i<=train+test;i++){
+            double y=f(i),y_=NET::predict(get_vx(i-NET::timestep+1,i)).back()[0];
+            fout<<fixed<<setprecision(6)<<y_<<endl;
+            data(i,0)=y_;
+            loss+=abs(y-y_);
+            baseline_loss+=abs(y-f(i-1));
+        }
+        cout<<"loss="<<loss<<endl;
+        cout<<"baseline_loss="<<baseline_loss<<endl;
+    }
+}
+
+namespace MULTI_LSTM_DEMO{
+    DataSet xdata,ydata,temp;
+    void demo(){
+        //read data
+        csv_reader.open("weather/beijing_data.csv");
+        int all=csv_reader.size()[0];
+        csv_reader.export_number_data(0,all-1,6,6,xdata);
+        csv_reader.export_number_data(0,all-1,8,8,temp);xdata+=temp;
+        csv_reader.export_number_data(0,all-1,10,12,temp);xdata+=temp;
+        csv_reader.export_onehot_data(0,all-1,9,temp);xdata+=temp;
+        xdata.zscore_normalization(0);
+        xdata.zscore_normalization(1);
+        xdata.zscore_normalization(2);
+        xdata.zscore_normalization(3);
+        xdata.zscore_normalization(4);
+        csv_reader.export_number_data(0,all-1,7,7,ydata);
+        ydata.zscore_normalization(0);
+        //train
+        int train=30000,test=10000,epoch=200000;
+        vector<Vector> vx(NET::timestep),vy(NET::timestep);
+        for(int it=1;it<=epoch;it++){
+            int r=randint(NET::timestep-1,train),l=r-NET::timestep+1;
+            for(int i=l;i<=r;i++)vx[i-l]=xdata.data[i],vy[i-l]=ydata.data[i];
+            NET::train(vx,vy);
+            if(it%(epoch/100)==0)cout<<it*100.0/epoch<<"%"<<endl;
+        }
+        //test
+        double loss=0,baseline_loss=0;
+        for(int r=train+1;r<=train+test;r++){
+            int l=r-NET::timestep+1;
+            for(int i=l;i<=r;i++)vx[i-l]=xdata.data[i];
+            double y=ydata.data[r][0],y_=NET::predict(vx).back()[0];
+            loss+=abs(y-y_);
+            baseline_loss+=abs(y-ydata.data[r-1][0]);
+        }
+        cout<<"loss="<<loss<<endl;
+        cout<<"baseline_loss="<<baseline_loss<<endl;
+    }
 }
 
 int main() {
-    demo();
+    SINGLE_LSTM_DEMO::demo();
     return 0;
 }
 /*
