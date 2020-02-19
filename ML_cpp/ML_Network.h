@@ -4,7 +4,7 @@
 #include "ML_Data_Reader.h"
 using namespace std;
 
-const double init_L=-0.2,init_R=0.2;
+const double init_L=-0.5,init_R=0.5;
 
 //智能数组 用[]使用一维索引 用()使用二维索引
 template <const int N,const int M>
