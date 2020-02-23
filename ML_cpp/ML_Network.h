@@ -4,7 +4,37 @@
 #include "ML_Data_Reader.h"
 using namespace std;
 
-const double init_L=-0.5,init_R=0.5;
+//参数列表
+class ParameterList{
+public:
+    vector<double*> w,dw;
+    void clear(){
+        w.clear();
+        dw.clear();
+    }
+    void add_parameter(double &x,double &dx){
+        w.emplace_back(&x);
+        dw.emplace_back(&dx);
+    }
+};
+
+//优化器
+namespace Optimazer{
+class GradientDescent{
+public:
+    double eta=0.05;
+    GradientDescent(){}
+    GradientDescent(double eta):eta(eta){}
+    void iterate(const ParameterList &L){
+        int n=L.w.size();
+        for(int i=0;i<n;i++){
+            *(L.w[i])-=eta*(*(L.dw[i]));
+        }
+    }
+};
+}
+
+const double init_L=-0.2,init_R=0.2;
 
 //智能数组 用[]使用一维索引 用()使用二维索引
 template <const int N,const int M>
@@ -26,9 +56,18 @@ public:
 template <const int N,const int M>
 Vector Array2Vector(const SmartArray<N,M> &a){return Vector(a.data,a.data+N*M);}
 
+//全连接边
 template <const int N,const int M>
-class ComplateEdge:public SmartArray<N,M>{};
-//#define ComplateEdge SmartArray
+class ComplateEdge{
+public:
+    SmartArray<N,M> w,dw;
+    ComplateEdge<N,M>(){w.reset_weight(init_L,init_R);}
+    void reset_weight(double l,double r){w.reset_weight(l,r);}
+    double& operator () (int x,int y){return w(x,y);}
+    void get_parameters(ParameterList &PL){
+        for(int i=0;i<N*M;i++)PL.add_parameter(w[i],dw[i]);
+    }
+};
 
 /*损失函数(导数)*/
 function<Vector(Vector,Vector)> mse=[](Vector y,Vector y_){
@@ -138,12 +177,9 @@ public:
         f->calc_diff(in_val.data,temp,N);
         for(int i=0;i<N;i++)out_diff[i]=in_diff[i]*temp[i];
     }
-    void update_w(double eta){
+    void get_parameters(ParameterList &PL){
         if(threshold_flag==1){
-            for(int i=0;i<N;i++){
-                c[i]-=eta*out_diff[i];
-                assert(!isnan(c[i]) && !isinf(c[i]));
-            }
+            for(int i=0;i<N;i++)PL.add_parameter(c[i],out_diff[i]);
         }
     }
 };
@@ -154,10 +190,10 @@ class ConvLayer:public Layer{
 public:
     static const int H_out=H_in-H_c+1,W_out=W_in-W_c+1;
     static const int input_size=H_in*W_in,output_size=H_out*W_out;
-    SmartArray<H_c,W_c> w;
+    SmartArray<H_c,W_c> w,dw;
     SmartArray<H_in,W_in> in_val,out_diff;
     SmartArray<H_out,W_out> out_val,in_diff;
-    double c;
+    double c,dc;
     void reset_weight(double l=init_L,double r=init_R){
         w.reset_weight(l,r);
         c=Rand(l,r);
@@ -186,15 +222,19 @@ public:
                 }
             }
         }
-    }
-    void update_w(double eta){
+        dw.clear();
+        dc=0;
         for(int i=0;i<H_out;i++)for(int j=0;j<W_out;j++){
             assert(!isnan(in_diff(i,j)));
             for(int r=0;r<H_c;r++)for(int c=0;c<W_c;c++){
-                w(r,c)-=eta*in_diff(i,j)*in_val(i+r,j+c);
+                dw(r,c)+=in_diff(i,j)*in_val(i+r,j+c);
             }
-            c-=eta*in_diff(i,j);
+            dc+=in_diff(i,j);
         }
+    }
+    void get_parameters(ParameterList &PL){
+        for(int i=0;i<H_c;i++)for(int j=0;j<W_c;j++)PL.add_parameter(w(i,j),dw(i,j));
+        PL.add_parameter(c,dc);
     }
 };
 
@@ -230,7 +270,7 @@ public:
             out_diff(max_i,max_j)=in_diff(i,j);
         }
     }
-    void update_w(double eta){}
+    void get_parameters(ParameterList &PL){}
 };
 
 //乘法层
@@ -252,7 +292,7 @@ public:
         for(int i=0;i<N;i++)A_diff[i]=in_diff[i]*B[i];
         for(int i=0;i<N;i++)B_diff[i]=in_diff[i]*A[i];
     }
-    void update_w(double eta){}
+    void get_parameters(ParameterList &PL){}
 };
 
 //正向传播
@@ -268,12 +308,6 @@ void push_backward(LayerType1 &A,LayerType2 &B){
     for(int i=0;i<LayerType1::output_size;i++)A.in_diff[i]+=B.out_diff[i];
 }
 //全连接
-template <class LayerType1,class LayerType2>
-ComplateEdge<LayerType1::output_size,LayerType2::input_size> full_connect(LayerType1 &A,LayerType2 &B){
-    ComplateEdge<LayerType1::output_size,LayerType2::input_size> E;
-    E.reset_weight(init_L,init_R);
-    return E;
-}
 template<class LayerType1,class LayerType2>
 void push_forward(LayerType1 &A,LayerType2 &B,ComplateEdge<LayerType1::output_size,LayerType2::input_size> &E){
     for(int i=0;i<LayerType1::output_size;i++){
@@ -283,11 +317,11 @@ void push_forward(LayerType1 &A,LayerType2 &B,ComplateEdge<LayerType1::output_si
     }
 }
 template<class LayerType1,class LayerType2>
-void push_backward(LayerType1 &A,LayerType2 &B,ComplateEdge<LayerType1::output_size,LayerType2::input_size> &E,double eta){
+void push_backward(LayerType1 &A,LayerType2 &B,ComplateEdge<LayerType1::output_size,LayerType2::input_size> &E){
     for(int j=0;j<LayerType2::input_size;j++){
         for(int i=0;i<LayerType1::output_size;i++){
             A.in_diff[i]+=B.out_diff[j]*E(i,j);
-            E(i,j)-=eta*B.out_diff[j]*A.out_val[i];
+            E.dw(i,j)=B.out_diff[j]*A.out_val[i];
         }
     }
 }

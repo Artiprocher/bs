@@ -4,14 +4,20 @@ typedef long long ll;
 
 namespace net3{
     double eta=0.5;
+    ParameterList PL;
     DenseLayer<25> input_layer;
     DenseLayer<20> hidden_layer(sigmoid,sigmoid_diff);
     DenseLayer<10> output_layer(sigmoid,sigmoid_diff);
-    auto E1=full_connect(input_layer,hidden_layer);
-    auto E2=full_connect(hidden_layer,output_layer);
+    ComplateEdge<25,20> E1;
+    ComplateEdge<20,10> E2;
     auto loss=mse;
+    Optimazer::GradientDescent GD(eta);
     void init(){
-        ;
+        input_layer.get_parameters(PL);
+        hidden_layer.get_parameters(PL);
+        output_layer.get_parameters(PL);
+        E1.get_parameters(PL);
+        E2.get_parameters(PL);
     }
     Vector predict(const Vector &x){
         /*清理*/
@@ -37,12 +43,11 @@ namespace net3{
         /*逆向传值*/
         Vector2Array(loss(y,y_),output_layer.in_diff);
         output_layer.backward_solve();
-        push_backward(hidden_layer,output_layer,E2,eta);
+        push_backward(hidden_layer,output_layer,E2);
         hidden_layer.backward_solve();
-        push_backward(input_layer,hidden_layer,E1,eta);
+        push_backward(input_layer,hidden_layer,E1);
         /*更新权重*/
-        hidden_layer.update_w(eta);
-        output_layer.update_w(eta);
+        GD.iterate(PL);
     }
 };
 

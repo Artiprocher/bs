@@ -2,39 +2,6 @@
 #define rep(i,a,b) for(int i=(int)a;i<=(int)b;i++)
 typedef long long ll;
 
-template <const int N>
-class MultiplicationLayer:public Layer{
-public:
-    static const int input_size=N,output_size=N;
-    SmartArray<1,N> A,B,out_val;
-    SmartArray<1,N> in_diff,A_diff,B_diff;
-    void clear(){
-        A.clear();
-        B.clear();
-        in_diff.clear();
-    }
-    void forward_solve(){
-        for(int i=0;i<N;i++)out_val[i]=A[i]*B[i];
-    }
-    void backward_solve(){
-        for(int i=0;i<N;i++)A_diff[i]=in_diff[i]*B[i];
-        for(int i=0;i<N;i++)B_diff[i]=in_diff[i]*A[i];
-    }
-    void update_w(double eta){}
-};
-template <class LayerType1,class LayerType2,const int N>
-void push_forward(LayerType1 &L1,LayerType2 &L2,MultiplicationLayer<N> &L3){
-    assert(LayerType1::output_size==N && LayerType2::output_size==N);
-    for(int i=0;i<N;i++)L3.A[i]+=L1.out_val[i];
-    for(int i=0;i<N;i++)L3.B[i]+=L2.out_val[i];
-}
-template <class LayerType1,class LayerType2,const int N>
-void push_backward(LayerType1 &L1,LayerType2 &L2,MultiplicationLayer<N> &L3){
-    assert(LayerType1::output_size==N && LayerType2::output_size==N);
-    for(int i=0;i<N;i++)L1.in_diff[i]+=L3.A_diff[i];
-    for(int i=0;i<N;i++)L2.in_diff[i]+=L3.B_diff[i];
-}
-
 namespace LSTM{
     const int n=144,m=1,k=1;
     double eta=0.05;

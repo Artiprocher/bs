@@ -2,7 +2,7 @@
 #define rep(i,a,b) for(int i=(int)a;i<=(int)b;i++)
 typedef long long ll;
 
-namespace SimpleRNN{
+/*namespace SimpleRNN{
     const int n=30,m=20,k=1;
     const int timestep=40;
     const double eta=0.05,eta_=eta;
@@ -86,13 +86,15 @@ namespace SimpleRNN{
         c[0].H_H*=1.0/(timestep-1);
         for(int i=1;i<timestep;i++)c[i]=c[0];
     }
-}
+}*/
 
 namespace LSTM{
+    ParameterList PL;
     const int n=30,m=20,k=1;
     const int timestep=40;
-    const double eta=0.05,eta_=eta;
+    const double eta=0.05;
     auto loss=mse;
+    Optimazer::GradientDescent GD(eta);
     class cell{
     public:
         DenseLayer<n> X;
@@ -107,11 +109,16 @@ namespace LSTM{
             D[1]=DenseLayer<m>(sigmoid,sigmoid_diff);
             D[2]=DenseLayer<m>(Tanh,Tanh_diff);
             D[3]=DenseLayer<m>(sigmoid,sigmoid_diff);
-            for(int i=0;i<4;i++)H_D[i]=full_connect(H0,D[i]);
-            for(int i=0;i<4;i++)X_D[i]=full_connect(X,D[i]);
-            H1_Y=full_connect(H1,Y);
             Y=DenseLayer<k>(constant,constant_diff);
             C3=DenseLayer<m>(Tanh,Tanh_diff);
+            X.get_parameters(PL);H0.get_parameters(PL);
+            D[0].get_parameters(PL);D[1].get_parameters(PL);D[2].get_parameters(PL);D[3].get_parameters(PL);
+            M.get_parameters(PL);
+            C0.get_parameters(PL);C1.get_parameters(PL);C2.get_parameters(PL);C3.get_parameters(PL);
+            H1.get_parameters(PL);Y.get_parameters(PL);
+            for(int i=0;i<4;i++)X_D[i].get_parameters(PL);
+            for(int i=0;i<4;i++)H_D[i].get_parameters(PL);
+            H1_Y.get_parameters(PL);
         }
         void clear(){
             X.clear();H0.clear();
@@ -137,7 +144,7 @@ namespace LSTM{
             push_forward(H1,Y,H1_Y);Y.forward_solve();
         }
         void backward_disseminate(){
-            Y.backward_solve();push_backward(H1,Y,H1_Y,eta_);
+            Y.backward_solve();push_backward(H1,Y,H1_Y);
             H1.backward_solve();push_backward(C3,D[3],H1);
             C3.backward_solve();push_backward(C2,C3);
             C2.backward_solve();push_backward(C1,C2);push_backward(M,C2);
@@ -145,14 +152,9 @@ namespace LSTM{
             M.backward_solve();push_backward(D[1],D[2],M);
             for(int i=0;i<4;i++){
                 D[i].backward_solve();
-                push_backward(H0,D[i],H_D[i],eta_);
-                push_backward(X,D[i],X_D[i],eta_);
+                push_backward(H0,D[i],H_D[i]);
+                push_backward(X,D[i],X_D[i]);
             }
-        }
-        void update_w(){
-            for(int i=0;i<4;i++)D[i].update_w(eta_);
-            C3.update_w(eta_);
-            Y.update_w(eta_);
         }
     }c[timestep];
     void init(){}
@@ -186,27 +188,16 @@ namespace LSTM{
             }
         }
         //更新权重
-        for(int i=0;i<timestep;i++)c[i].update_w();
-        for(int i=1;i<timestep;i++){
-            for(int j=0;j<4;j++){
-                c[0].X_D[j]+=c[i].X_D[j];
-                c[0].H_D[j]+=c[i].H_D[j];
-                c[0].D[j].c+=c[i].D[j].c;
-            }
-            c[0].C3.c+=c[i].C3.c;
-            c[0].H1_Y+=c[i].H1_Y;
-            c[0].Y.c+=c[i].Y.c;
+        GD.iterate(PL);
+        const double temp=1.0/timestep;
+        int num=PL.w.size()/timestep;
+        for(int t=1;t<timestep;t++){
+            for(int i=0;i<num;i++)*PL.w[i]+=*PL.w[t*num+i];
         }
-        static const double temp=1.0/timestep;
-        for(int j=0;j<4;j++){
-            c[0].X_D[j]*=temp;
-            c[0].H_D[j]*=temp;
-            c[0].D[j].c*=temp;
+        for(int i=0;i<num;i++)*PL.w[i]*=temp;
+        for(int t=1;t<timestep;t++){
+            for(int i=0;i<num;i++)*PL.w[t*num+i]=*PL.w[i];
         }
-        c[0].C3.c*=temp;
-        c[0].H1_Y*=temp;
-        c[0].Y.c*=temp;
-        for(int i=1;i<timestep;i++)c[i]=c[0];
     }
 }
 
@@ -251,49 +242,9 @@ namespace SINGLE_LSTM_DEMO{
         for(int i=train+1;i<=train+test;i++){
             double y=f(i),y_=NET::predict(get_vx(i-NET::timestep+1,i)).back()[0];
             fout<<fixed<<setprecision(6)<<y_<<endl;
-            data(i,0)=y_;
             loss+=abs(y-y_);
             baseline_loss+=abs(y-f(i-1));
-        }
-        cout<<"loss="<<loss<<endl;
-        cout<<"baseline_loss="<<baseline_loss<<endl;
-    }
-}
-
-namespace MULTI_LSTM_DEMO{
-    DataSet xdata,ydata,temp;
-    void demo(){
-        //read data
-        csv_reader.open("weather/beijing_data.csv");
-        int all=csv_reader.size()[0];
-        csv_reader.export_number_data(0,all-1,6,6,xdata);
-        csv_reader.export_number_data(0,all-1,8,8,temp);xdata+=temp;
-        csv_reader.export_number_data(0,all-1,10,12,temp);xdata+=temp;
-        csv_reader.export_onehot_data(0,all-1,9,temp);xdata+=temp;
-        xdata.zscore_normalization(0);
-        xdata.zscore_normalization(1);
-        xdata.zscore_normalization(2);
-        xdata.zscore_normalization(3);
-        xdata.zscore_normalization(4);
-        csv_reader.export_number_data(0,all-1,7,7,ydata);
-        ydata.zscore_normalization(0);
-        //train
-        int train=30000,test=10000,epoch=200000;
-        vector<Vector> vx(NET::timestep),vy(NET::timestep);
-        for(int it=1;it<=epoch;it++){
-            int r=randint(NET::timestep-1,train),l=r-NET::timestep+1;
-            for(int i=l;i<=r;i++)vx[i-l]=xdata.data[i],vy[i-l]=ydata.data[i];
-            NET::train(vx,vy);
-            if(it%(epoch/100)==0)cout<<it*100.0/epoch<<"%"<<endl;
-        }
-        //test
-        double loss=0,baseline_loss=0;
-        for(int r=train+1;r<=train+test;r++){
-            int l=r-NET::timestep+1;
-            for(int i=l;i<=r;i++)vx[i-l]=xdata.data[i];
-            double y=ydata.data[r][0],y_=NET::predict(vx).back()[0];
-            loss+=abs(y-y_);
-            baseline_loss+=abs(y-ydata.data[r-1][0]);
+            data(i,0)=y_;
         }
         cout<<"loss="<<loss<<endl;
         cout<<"baseline_loss="<<baseline_loss<<endl;

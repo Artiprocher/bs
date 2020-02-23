@@ -3,6 +3,7 @@
 typedef long long ll;
 
 namespace net2{
+    ParameterList PL;
     const int num1=10;
     double eta=0.05;
     DenseLayer<784> I0;
@@ -12,10 +13,15 @@ namespace net2{
     DenseLayer<10> L4;
     ComplateEdge<144,10> D3_L4[num1];
     auto loss=softmax_crossEntropy;
+    Optimazer::GradientDescent GD(eta);
     void init(){
-        //cout<<fixed<<setprecision(2);
         for(int i=0;i<num1;i++)D3[i]=DenseLayer<144>(sigmoid,sigmoid_diff);
-        for(int i=0;i<num1;i++)D3_L4[i]=full_connect(S2[i],L4);
+        I0.get_parameters(PL);
+        for(int i=0;i<num1;i++)C1[i].get_parameters(PL);
+        for(int i=0;i<num1;i++)S2[i].get_parameters(PL);
+        for(int i=0;i<num1;i++)D3[i].get_parameters(PL);
+        for(int i=0;i<num1;i++)D3_L4[i].get_parameters(PL);
+        L4.get_parameters(PL);
     }
     Vector predict(const Vector &x){
         //清理
@@ -47,18 +53,14 @@ namespace net2{
         //逆向传值
         Vector2Array(loss(y,y_),L4.in_diff);
         L4.backward_solve();
-        for(int i=0;i<num1;i++)push_backward(D3[i],L4,D3_L4[i],eta);
+        for(int i=0;i<num1;i++)push_backward(D3[i],L4,D3_L4[i]);
         for(int i=0;i<num1;i++)D3[i].backward_solve();
         for(int i=0;i<num1;i++)push_backward(S2[i],D3[i]);
         for(int i=0;i<num1;i++)S2[i].backward_solve();
         for(int i=0;i<num1;i++)push_backward(C1[i],S2[i]);
         for(int i=0;i<num1;i++)C1[i].backward_solve();
         //更新权重
-        I0.update_w(eta);
-        for(int i=0;i<num1;i++)C1[i].update_w(eta);
-        for(int i=0;i<num1;i++)S2[i].update_w(eta);
-        for(int i=0;i<num1;i++)D3[i].update_w(eta);
-        L4.update_w(eta);
+        GD.iterate(PL);
     }
 }
 
