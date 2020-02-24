@@ -1,3 +1,4 @@
+#define DEBUG
 #include "ML_Model.h"
 #define rep(i,a,b) for(int i=(int)a;i<=(int)b;i++)
 typedef long long ll;
@@ -5,7 +6,6 @@ typedef long long ll;
 namespace net2{
     ParameterList PL;
     const int num1=10;
-    double eta=0.05;
     DenseLayer<784> I0;
     ConvLayer<28,28,5,5> C1[num1];
     MaxPoolLayer<24,24,2,2> S2[num1];
@@ -13,7 +13,8 @@ namespace net2{
     DenseLayer<10> L4;
     ComplateEdge<144,10> D3_L4[num1];
     auto loss=softmax_crossEntropy;
-    Optimazer::GradientDescent GD(eta);
+    Optimazer::GradientDescent GD(0.05);
+    //Optimazer::Adam GD;
     void init(){
         for(int i=0;i<num1;i++)D3[i]=DenseLayer<144>(sigmoid,sigmoid_diff);
         I0.get_parameters(PL);
@@ -22,6 +23,7 @@ namespace net2{
         for(int i=0;i<num1;i++)D3[i].get_parameters(PL);
         for(int i=0;i<num1;i++)D3_L4[i].get_parameters(PL);
         L4.get_parameters(PL);
+        GD.init(PL);
     }
     Vector predict(const Vector &x){
         //清理
