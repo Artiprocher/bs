@@ -1,93 +1,10 @@
 #include <bits/stdc++.h>
 #include "ML_Vector.h"
 #include "ML_Rand.h"
-#include "ML_Data_Reader.h"
+#include "ML_Optimazer.h"
 using namespace std;
 
-//参数列表
-class ParameterList{
-public:
-    vector<double*> w,dw;
-    void clear(){
-        w.clear();
-        dw.clear();
-    }
-    void add_parameter(double &x,double &dx){
-        w.emplace_back(&x);
-        dw.emplace_back(&dx);
-    }
-};
-
-//优化器
-namespace Optimazer{
-//梯度下降法
-class GradientDescent{
-public:
-    double eta=0.05;
-    GradientDescent(){}
-    GradientDescent(double eta):eta(eta){}
-    void init(const ParameterList &L){}
-    void iterate(const ParameterList &L){
-        int n=L.w.size();
-        for(int i=0;i<n;i++){
-            *(L.w[i])-=eta*(*(L.dw[i]));
-        }
-    }
-};
-class Adam{
-public:
-    double alpha=0.001,beta1=0.9,beta2=0.999,eps=1e-8;
-    double power_beta1=1,power_beta2=1;
-    vector<double> m,v,m_,v_;
-    long long t=0;
-    void init(const ParameterList &L){
-        int n=L.w.size();
-        m=v=m_=v_=vector<double>(n,0);
-        t=0;
-        power_beta1=1,power_beta2=1;
-    }
-    void iterate(const ParameterList &L){
-        int n=L.w.size();
-        t++;
-#ifdef DEBUG
-        for(int i=0;i<n;i++){
-            assert(!isnan(*L.w[i]));
-            assert(!isinf(*L.w[i]));
-        }
-#endif
-        for(int i=0;i<n;i++){
-            m[i]=beta1*m[i]+(1.0-beta1)*(*L.dw[i]);
-            v[i]=beta2*v[i]+(1.0-beta2)*(*L.dw[i])*(*L.dw[i]);
-            power_beta1*=beta1,power_beta2*=beta2;
-            m_[i]=m[i]/(1.0-power_beta1);
-            v_[i]=v[i]/(1.0-power_beta2);
-            (*L.w[i])-=alpha*m_[i]/(sqrt(v_[i])+eps);
-        }
-    }
-};
-}
-
 const double init_L=-0.5,init_R=0.5;
-
-//智能数组 用[]使用一维索引 用()使用二维索引
-template <const int N,const int M>
-class SmartArray{
-public:
-    double data[N*M];
-    void clear(){for(int i=0;i<N*M;i++)data[i]=0;}
-    SmartArray<N,M>(){clear();}
-    void show(){for(int i=0;i<N;i++)for(int j=0;j<M;j++)std::cout<<data[i*M+j]<<",\n"[j+1==M];}
-    double& operator [] (int x){return data[x];}
-    double& operator () (int x,int y){return data[x*M+y];}
-    void reset_weight(double l,double r){for(int i=0;i<N*M;i++)data[i]=Rand(l,r);}
-    void operator += (const SmartArray<N,M> &b){for(int i=0;i<N*M;i++)data[i]+=b.data[i];}
-    void operator *= (const SmartArray<N,M> &b){for(int i=0;i<N*M;i++)data[i]*=b.data[i];}
-    void operator += (const double &b){for(int i=0;i<N*M;i++)data[i]+=b;}
-    void operator *= (const double &b){for(int i=0;i<N*M;i++)data[i]*=b;}
-    Vector Array2Vector()const{return Vector(data,data+N*M);}
-};
-template <const int N,const int M>
-Vector Array2Vector(const SmartArray<N,M> &a){return Vector(a.data,a.data+N*M);}
 
 //全连接边
 template <const int N,const int M>
@@ -302,6 +219,128 @@ public:
             assert(max_i>=i*H_c && max_i<i*H_c+H_c && max_j>=j*W_c && max_j<j*W_c+W_c);
             out_diff(max_i,max_j)=in_diff(i,j);
         }
+    }
+    void get_parameters(ParameterList &PL){}
+};
+
+//并行层
+template<class LayerType,const int N>
+class Parallel:public Layer{
+public:
+    static const int input_size=LayerType::input_size*N;
+    static const int output_size=LayerType::output_size*N;
+    SmartArray<1,input_size> in_val,out_diff;
+    SmartArray<1,output_size> in_diff,out_val;
+    LayerType L[N];
+    LayerType& operator [] (int x){return L[x];}
+    void clear(){
+        for(int i=0;i<N;i++)L[i].clear();
+        in_val.clear();
+        in_diff.clear();
+    }
+    void forward_solve(){
+        int tot=0;
+        for(int i=0;i<N;i++){
+            for(int j=0;j<LayerType::input_size;j++){
+                L[i].in_val[j]=in_val[tot++];
+            }
+        }
+        for(int i=0;i<N;i++)L[i].forward_solve();
+        tot=0;
+        for(int i=0;i<N;i++){
+            for(int j=0;j<LayerType::output_size;j++){
+                out_val[tot++]=L[i].out_val[j];
+            }
+        }
+    }
+    void backward_solve(){
+        int tot=0;
+        for(int i=0;i<N;i++){
+            for(int j=0;j<LayerType::output_size;j++){
+                L[i].in_diff[j]=in_diff[tot++];
+            }
+        }
+        for(int i=0;i<N;i++)L[i].backward_solve();
+        tot=0;
+        for(int i=0;i<N;i++){
+            for(int j=0;j<LayerType::input_size;j++){
+                out_diff[tot++]=L[i].out_diff[j];
+            }
+        }
+    }
+    void get_parameters(ParameterList &PL){
+        for(int i=0;i<N;i++)L[i].get_parameters(PL);
+    }
+};
+template<class LayerType,const int N>
+class ExpandParallel:public Layer{
+public:
+    static const int input_size=LayerType::input_size;
+    static const int output_size=LayerType::output_size*N;
+    SmartArray<1,input_size> in_val,out_diff;
+    SmartArray<1,output_size> in_diff,out_val;
+    LayerType L[N];
+    LayerType& operator [] (int x){return L[x];}
+    void clear(){
+        for(int i=0;i<N;i++)L[i].clear();
+        in_val.clear();
+        in_diff.clear();
+    }
+    void forward_solve(){
+        for(int i=0;i<N;i++){
+            for(int j=0;j<LayerType::input_size;j++){
+                L[i].in_val[j]=in_val[j];
+            }
+        }
+        for(int i=0;i<N;i++)L[i].forward_solve();
+        int tot=0;
+        for(int i=0;i<N;i++){
+            for(int j=0;j<LayerType::output_size;j++){
+                out_val[tot++]=L[i].out_val[j];
+            }
+        }
+    }
+    void backward_solve(){
+        int tot=0;
+        for(int i=0;i<N;i++){
+            for(int j=0;j<LayerType::output_size;j++){
+                L[i].in_diff[j]=in_diff[tot++];
+            }
+        }
+        for(int i=0;i<N;i++)L[i].backward_solve();
+        out_diff.clear();
+        for(int i=0;i<N;i++){
+            for(int j=0;j<LayerType::input_size;j++){
+                out_diff[j]=L[i].out_diff[j];
+            }
+        }
+    }
+    void get_parameters(ParameterList &PL){
+        for(int i=0;i<N;i++)L[i].get_parameters(PL);
+    }
+};
+
+//Dropout层
+template<const int N>
+class DropoutLayer:public Layer{
+public:
+    static const int input_size=N;
+    static const int output_size=N;
+    double p=0.5,k=2.0;
+    SmartArray<1,N> in_val,out_diff;
+    SmartArray<1,N> in_diff,out_val;
+    bool drop[N];
+    void clear(){
+        in_val.clear();
+        out_val.clear();
+        for(int i=0;i<N;i++)drop[i]=0;
+    }
+    void forward_solve(){
+        for(int i=0;i<N;i++)if(Rand(0,1)<p)drop[i]=1;
+        for(int i=0;i<N;i++)out_val[i]=drop[i]?0:in_val[i]*k;
+    }
+    void backward_solve(){
+        for(int i=0;i<N;i++)out_diff[i]=drop[i]?0:in_diff[i]*k;
     }
     void get_parameters(ParameterList &PL){}
 };

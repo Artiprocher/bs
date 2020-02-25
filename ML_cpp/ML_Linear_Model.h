@@ -1,9 +1,10 @@
-#include <bits/stdc++.h>
-#include "ML_Rand.h"
-#include "ML_Vector.h"
-
 #ifndef ML_Linear_Model
 #define ML_Linear_Model
+
+#include <bits/stdc++.h>
+using namespace std;
+#include "ML_Rand.h"
+#include "ML_Vector.h"
 
 class LinearRegression {
    private:
@@ -18,9 +19,9 @@ class LinearRegression {
     LinearRegression() {}
     LinearRegression(int n) { init(n); }
     void show() const {
-        std::cout << " y =";
+        cout << " y =";
         each_index(i, w) {
-            std::cout << " "[i == 0] << "(" << w[i] << ") * x" << i << " "
+            cout << " "[i == 0] << "(" << w[i] << ") * x" << i << " "
                       << "+\n"[i + 1 == (int)w.size()];
         }
     }
@@ -32,27 +33,27 @@ class LinearRegression {
         assert(x.size() == w.size());
         double y_ = predict(x);
         w -= (eta * (y_ - y)) * x;
-        for(auto i:w)if(std::isinf(i)){
-            std::cerr<<"Divergence!"<<std::endl;
+        for(auto i:w)if(isinf(i)){
+            cerr<<"Divergence!"<<endl;
             exit(1);
         }
     }
     void save(const char *file_name) const {
-        std::ofstream fout;
-        fout.open(file_name, std::ios::out);
-        fout << "LinearRegression" << std::endl;
+        ofstream fout;
+        fout.open(file_name, ios::out);
+        fout << "LinearRegression" << endl;
         for (auto i : w) {
-            fout << std::fixed << std::setprecision(10) << i << std::endl;
+            fout << fixed << setprecision(10) << i << endl;
         }
     }
     void load(const char *file_name) {
-        std::ifstream fin;
-        fin.open(file_name, std::ios::in);
+        ifstream fin;
+        fin.open(file_name, ios::in);
         w.clear();
-        std::string model_name;
+        string model_name;
         fin >> model_name;
         if (model_name != "LinearRegression") {
-            std::cerr << "It is not a Linear Regression Model." << std::endl;
+            cerr << "It is not a Linear Regression Model." << endl;
         }
         double temp;
         while (fin >> temp) {
@@ -79,12 +80,12 @@ class LogitRegression {
     LogitRegression() {}
     LogitRegression(int n) { init(n); }
     void show() const {
-        std::cout << " y = sigmoid(";
+        cout << " y = sigmoid(";
         each_index(i, w) {
-            std::cout << " "[i == 0] << "(" << w[i] << ") * x" << i << " "
+            cout << " "[i == 0] << "(" << w[i] << ") * x" << i << " "
                       << "+)"[i + 1 == (int)w.size()];
         }
-        std::cout << std::endl;
+        cout << endl;
     }
     double predict(const Vector &x) const {
         assert(x.size() == w.size());
@@ -94,27 +95,27 @@ class LogitRegression {
         assert(x.size() == w.size());
         double s = Dot(x, w), y_ = sigmoid(s);
         w -= (eta * (y_ - y) * sigmoid_diff(s)) * x;
-        for(auto i:w)if(std::isinf(i)){
-            std::cerr<<"Divergence!"<<std::endl;
+        for(auto i:w)if(isinf(i)){
+            cerr<<"Divergence!"<<endl;
             exit(1);
         }
     }
     void save(const char *file_name) const {
-        std::ofstream fout;
-        fout.open(file_name, std::ios::out);
-        fout << "LogitRegression" << std::endl;
+        ofstream fout;
+        fout.open(file_name, ios::out);
+        fout << "LogitRegression" << endl;
         for (auto i : w) {
-            fout << std::fixed << std::setprecision(10) << i << std::endl;
+            fout << fixed << setprecision(10) << i << endl;
         }
     }
     void load(const char *file_name) {
-        std::ifstream fin;
-        fin.open(file_name, std::ios::in);
+        ifstream fin;
+        fin.open(file_name, ios::in);
         w.clear();
-        std::string model_name;
+        string model_name;
         fin >> model_name;
         if (model_name != "LogitRegression") {
-            std::cerr << "It is not a Logit Regression Model." << std::endl;
+            cerr << "It is not a Logit Regression Model." << endl;
         }
         double temp;
         while (fin >> temp) {

@@ -1,10 +1,13 @@
-#include <bits/stdc++.h>
 #ifndef ML_Data_Reader
 #define ML_Data_Reader
 
+#include <bits/stdc++.h>
+using namespace std;
+#include "ML_Vector.h"
+
 class DataSet {
    public:
-    std::vector<Vector> data;
+    vector<Vector> data;
     void clear() { data.clear(); }
     void resize(int n, int m) {
         data.resize(n);
@@ -12,15 +15,15 @@ class DataSet {
     }
     double &operator()(int x, int y) {
         if (x < 0 || x >= (int)data.size()) {
-            std::cerr << "Row index out of range." << std::endl;
+            cerr << "Row index out of range." << endl;
         } else if (y < 0 || y >= (int)data[x].size()) {
-            std::cerr << "Col index out of range." << std::endl;
+            cerr << "Col index out of range." << endl;
         }
         return data[x][y];
     }
     DataSet &operator+=(const DataSet &B) {
         if (B.data.size() != data.size()) {
-            std::cerr << "Size error." << std::endl;
+            cerr << "Size error." << endl;
         }
         for (int i = 0; i < (int)data.size(); i++) {
             for (int j = 0; j < (int)B.data[i].size(); j++) {
@@ -33,7 +36,7 @@ class DataSet {
         double ans=0;
         int num=0;
         for(int i=0;i<(int)data.size();i++){
-            if(!std::isnan(data[i][c])){
+            if(!isnan(data[i][c])){
                 ans+=data[i][c];
                 num++;
             }
@@ -44,7 +47,7 @@ class DataSet {
         double ans=0,m=mean(c);
         int num=0;
         for(int i=0;i<(int)data.size();i++){
-            if(!std::isnan(data[i][c])){
+            if(!isnan(data[i][c])){
                 ans+=(data[i][c]-m)*(data[i][c]-m);
                 num++;
             }
@@ -67,7 +70,7 @@ class DataSet {
         for(int i=0;i<C;i++)m[i]=mean(i);
         for(int i=0;i<R;i++){
             for(int j=0;j<C;j++){
-                if(std::isnan(data[i][j]))data[i][j]=m[j];
+                if(isnan(data[i][j]))data[i][j]=m[j];
             }
         }
     }
@@ -81,37 +84,37 @@ class DataSet {
     }
     void show() const {
         static const int show_size = 5;
-        std::cout << "row: " << data.size() << " col:" << data[0].size()
-                  << std::endl;
+        cout << "row: " << data.size() << " col:" << data[0].size()
+                  << endl;
         for (int i = 0; i < (int)data.size(); i++) {
             if (i >= show_size && i + show_size < (int)data.size()) {
-                std::cout << "..." << std::endl;
+                cout << "..." << endl;
                 i = data.size() - show_size;
             }
             for (int j = 0; j < (int)data[i].size(); j++) {
                 if (j >= show_size && j + show_size < (int)data[i].size()) {
-                    std::cout << "\t...";
+                    cout << "\t...";
                     j = data[i].size() - show_size;
                 }
-                std::cout << "\t" << data[i][j];
+                cout << "\t" << data[i][j];
             }
-            std::cout << std::endl;
+            cout << endl;
         }
-        std::cout << std::endl;
+        cout << endl;
     }
 };
 
 class CSV_Reader {
    public:
-    std::ifstream file;
-    std::vector<std::string> str_data;
-    std::vector< std::vector<std::string> > data;
-    std::vector<std::string> index;
+    ifstream file;
+    vector<string> str_data;
+    vector< vector<string> > data;
+    vector<string> index;
     int file_flag = 0;
-    std::vector<int> size()const{
-        return (std::vector<int>){(int)data.size(),(int)data[0].size()};
+    vector<int> size()const{
+        return (vector<int>){(int)data.size(),(int)data[0].size()};
     }
-    bool isNumber(const std::string &s) {
+    bool isNumber(const string &s) {
         int point = 0;
         int start=0;
         while(start<(int)s.size() && s[start]==' ')start++;
@@ -130,7 +133,7 @@ class CSV_Reader {
         }
         return true;
     }
-    double str2num(const std::string &s) {
+    double str2num(const string &s) {
         int point = 0, u = 0, start = 0;
         double v = 0, w = 1.0, sign = 1.0;
         while(start<(int)s.size() && s[start]==' ')start++;
@@ -139,11 +142,11 @@ class CSV_Reader {
         for (int i = start; i <= (int)s.size()-1; i++) {
             if(s[i]==' ')continue;
             if (!(s[i] >= '0' && s[i] <= '9') && s[i]!='.') {
-                std::cerr << "Not number." << std::endl;
+                cerr << "Not number." << endl;
                 return -1.0;
             } else if (s[i] == '.') {
                 if (point == 1) {
-                    std::cerr << "2 or more points" << std::endl;
+                    cerr << "2 or more points" << endl;
                     return -1.0;
                 } else {
                     point = 1;
@@ -165,17 +168,17 @@ class CSV_Reader {
             file.close();
         }
         file_flag = 1;
-        file.open(file_name, std::ios::in);
+        file.open(file_name, ios::in);
         if (!file) {
-            std::cerr << "Open file error." << std::endl;
+            cerr << "Open file error." << endl;
             return;
         }
         str_data.clear();
-        static std::string temp;
+        static string temp;
         while (getline(file, temp)) {
             str_data.emplace_back(temp);
         }
-        index = (std::vector<std::string>){""};
+        index = (vector<string>){""};
         for (auto c : str_data[0]) {
             if (c == ',')
                 index.emplace_back("");
@@ -202,9 +205,9 @@ class CSV_Reader {
     }
     void describe() {
         int R = (int)str_data.size() - 1, C = data[0].size();
-        std::cout << "row: " << R << " col: " << C << std::endl;
-        std::vector<int> number(C, 0);
-        std::unordered_map<std::string,int> num[C+1];
+        cout << "row: " << R << " col: " << C << endl;
+        vector<int> number(C, 0);
+        unordered_map<string,int> num[C+1];
         for (int i = 0; i < R; i++) {
             for(int j=0;j<C;j++){
                 if(isNumber(data[i][j]))number[j]++;
@@ -212,25 +215,25 @@ class CSV_Reader {
             }
         }
         for (int i = 0; i < C; i++) {
-            std::cout << "col " << i << ": " << index[i] << std::endl;
-            std::cout << "     " << number[i] << " numbers  ";
-            std::cout << num[i].size() << " categories  ";
-            if(num[i][""]>0)std::cout << num[i][""] << " empty  ";
+            cout << "col " << i << ": " << index[i] << endl;
+            cout << "     " << number[i] << " numbers  ";
+            cout << num[i].size() << " categories  ";
+            if(num[i][""]>0)cout << num[i][""] << " empty  ";
             else num[i].erase("");
-            std::cout << std::endl;
-            std::cout<<"     {";
+            cout << endl;
+            cout<<"     {";
             int j=1;
             for(auto it=num[i].begin();it!=num[i].end();it++){
-                std::cout<<(it->first)<<", ";
+                cout<<(it->first)<<", ";
                 j++;
                 if(j>4)break;
             }
-            if(num[i].size()>4)std::cout<<"...";
-            std::cout<<"}"<<std::endl;
+            if(num[i].size()>4)cout<<"...";
+            cout<<"}"<<endl;
         }
     }
     void shuffle() {
-        std::random_shuffle(str_data.begin() + 1, str_data.end());
+        random_shuffle(str_data.begin() + 1, str_data.end());
     }
     void export_number_data(int r1, int r2, int c1, int c2, DataSet &D) {
         D.resize(r2 - r1 + 1, c2 - c1 + 1);
@@ -242,8 +245,8 @@ class CSV_Reader {
         }
     }
     void export_onehot_data(int r1, int r2, int c, DataSet &D) {
-        static std::set<std::string> se;
-        static std::map<std::string, int> mp;
+        static set<string> se;
+        static map<string, int> mp;
         se.clear();
         mp.clear();
         for(int i=0;i<(int)data.size();i++)se.insert(data[i][c]);
@@ -256,12 +259,12 @@ class CSV_Reader {
     }
     void print_column(int c){
         for(int i=0;i<(int)data.size();i++){
-            std::cout<<data[i][c]<<std::endl;
+            cout<<data[i][c]<<endl;
         }
     }
     void close() {
         if (file_flag == 0) {
-            std::cerr << "No file is opened." << std::endl;
+            cerr << "No file is opened." << endl;
         }
         str_data.clear();
         data.clear();
