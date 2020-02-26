@@ -18,6 +18,11 @@ public:
         for(int i=0;i<N*M;i++)PL.add_parameter(w[i],dw[i]);
     }
 };
+template <class LayerType1,class LayerType2>
+ComplateEdge<LayerType1::output_size,LayerType2::input_size> full_connect(LayerType1 &A,LayerType2 &B){
+    ComplateEdge<LayerType1::output_size,LayerType2::input_size> E;
+    return E;
+}
 
 /*损失函数(导数)*/
 function<Vector(Vector,Vector)> mse=[](Vector y,Vector y_){
@@ -238,35 +243,47 @@ public:
         in_val.clear();
         in_diff.clear();
     }
-    void forward_solve(){
+    void pass_in_val(){
         int tot=0;
         for(int i=0;i<N;i++){
             for(int j=0;j<LayerType::input_size;j++){
                 L[i].in_val[j]=in_val[tot++];
             }
         }
-        for(int i=0;i<N;i++)L[i].forward_solve();
-        tot=0;
+    }
+    void pass_out_val(){
+        int tot=0;
         for(int i=0;i<N;i++){
             for(int j=0;j<LayerType::output_size;j++){
                 out_val[tot++]=L[i].out_val[j];
             }
         }
     }
-    void backward_solve(){
+    void pass_in_diff(){
         int tot=0;
         for(int i=0;i<N;i++){
             for(int j=0;j<LayerType::output_size;j++){
                 L[i].in_diff[j]=in_diff[tot++];
             }
         }
-        for(int i=0;i<N;i++)L[i].backward_solve();
-        tot=0;
+    }
+    void pass_out_diff(){
+        int tot=0;
         for(int i=0;i<N;i++){
             for(int j=0;j<LayerType::input_size;j++){
                 out_diff[tot++]=L[i].out_diff[j];
             }
         }
+    }
+    void forward_solve(){
+        pass_in_val();
+        for(int i=0;i<N;i++)L[i].forward_solve();
+        pass_out_val();
+    }
+    void backward_solve(){
+        pass_in_diff();
+        for(int i=0;i<N;i++)L[i].backward_solve();
+        pass_out_diff();
     }
     void get_parameters(ParameterList &PL){
         for(int i=0;i<N;i++)L[i].get_parameters(PL);
@@ -286,13 +303,14 @@ public:
         in_val.clear();
         in_diff.clear();
     }
-    void forward_solve(){
+    void pass_in_val(){
         for(int i=0;i<N;i++){
             for(int j=0;j<LayerType::input_size;j++){
                 L[i].in_val[j]=in_val[j];
             }
         }
-        for(int i=0;i<N;i++)L[i].forward_solve();
+    }
+    void pass_out_val(){
         int tot=0;
         for(int i=0;i<N;i++){
             for(int j=0;j<LayerType::output_size;j++){
@@ -300,20 +318,31 @@ public:
             }
         }
     }
-    void backward_solve(){
+    void pass_in_diff(){
         int tot=0;
         for(int i=0;i<N;i++){
             for(int j=0;j<LayerType::output_size;j++){
                 L[i].in_diff[j]=in_diff[tot++];
             }
         }
-        for(int i=0;i<N;i++)L[i].backward_solve();
+    }
+    void pass_out_diff(){
         out_diff.clear();
         for(int i=0;i<N;i++){
             for(int j=0;j<LayerType::input_size;j++){
                 out_diff[j]=L[i].out_diff[j];
             }
         }
+    }
+    void forward_solve(){
+        pass_in_val();
+        for(int i=0;i<N;i++)L[i].forward_solve();
+        pass_out_val();
+    }
+    void backward_solve(){
+        pass_in_diff();
+        for(int i=0;i<N;i++)L[i].backward_solve();
+        pass_out_diff();
     }
     void get_parameters(ParameterList &PL){
         for(int i=0;i<N;i++)L[i].get_parameters(PL);
@@ -330,9 +359,15 @@ public:
     SmartArray<1,N> in_val,out_diff;
     SmartArray<1,N> in_diff,out_val;
     bool drop[N];
+    DropoutLayer<N>(){}
+    DropoutLayer<N>(double p):p(p),k(1.0/(1.0-p)){}
+    void set_drop_probability(double prob){
+        p=prob;
+        k=1.0/(1.0-p);
+    }
     void clear(){
         in_val.clear();
-        out_val.clear();
+        in_diff.clear();
         for(int i=0;i<N;i++)drop[i]=0;
     }
     void forward_solve(){

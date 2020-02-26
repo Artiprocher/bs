@@ -7,13 +7,21 @@ using namespace std;
 class ParameterList{
 public:
     vector<double*> w,dw;
+    vector<bool*> frozen;
     void clear(){
         w.clear();
         dw.clear();
+        frozen.clear();
     }
     void add_parameter(double &x,double &dx){
         w.emplace_back(&x);
         dw.emplace_back(&dx);
+        frozen.emplace_back(new bool(false));
+    }
+    void add_parameter(double &x,double &dx,bool &frozen_flag){
+        w.emplace_back(&x);
+        dw.emplace_back(&dx);
+        frozen.emplace_back(&frozen_flag);
     }
 };
 
@@ -28,7 +36,7 @@ public:
     void init(const ParameterList &L){}
     void iterate(const ParameterList &L){
         int n=L.w.size();
-        for(int i=0;i<n;i++){
+        for(int i=0;i<n;i++)if(!(*L.frozen[i])){
             *(L.w[i])-=eta*(*(L.dw[i]));
         }
     }
@@ -52,15 +60,25 @@ public:
         for(int i=0;i<n;i++){
             assert(!isnan(*L.w[i]));
             assert(!isinf(*L.w[i]));
+            assert(!isnan(*L.dw[i]));
+            assert(!isinf(*L.dw[i]));
         }
 #endif
-        for(int i=0;i<n;i++){
-            m[i]=beta1*m[i]+(1.0-beta1)*(*L.dw[i]);
-            v[i]=beta2*v[i]+(1.0-beta2)*(*L.dw[i])*(*L.dw[i]);
+        if(t<10000){
             power_beta1*=beta1,power_beta2*=beta2;
-            m_[i]=m[i]/(1.0-power_beta1);
-            v_[i]=v[i]/(1.0-power_beta2);
-            (*L.w[i])-=alpha*m_[i]/(sqrt(v_[i])+eps);
+            for(int i=0;i<n;i++)if(!(*L.frozen[i])){
+                m[i]=beta1*m[i]+(1.0-beta1)*(*L.dw[i]);
+                v[i]=beta2*v[i]+(1.0-beta2)*(*L.dw[i])*(*L.dw[i]);
+                m_[i]=m[i]/(1.0-power_beta1);
+                v_[i]=v[i]/(1.0-power_beta2);
+                (*L.w[i])-=alpha*m_[i]/(sqrt(v_[i])+eps);
+            }
+        }else{
+            for(int i=0;i<n;i++)if(!(*L.frozen[i])){
+                m[i]=beta1*m[i]+(1.0-beta1)*(*L.dw[i]);
+                v[i]=beta2*v[i]+(1.0-beta2)*(*L.dw[i])*(*L.dw[i]);
+                (*L.w[i])-=alpha*m[i]/(sqrt(v[i])+eps);
+            }
         }
     }
 };
