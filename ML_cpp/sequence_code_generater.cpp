@@ -53,13 +53,15 @@ int main(){
     generate_code(
         {
             {"DenseLayer<784>","IN"},
-            {"ExpandParallel< ConvLayer<28,28,5,5>,6 >","C1"},
-            {"Parallel< MaxPoolLayer<24,24,2,2>,6 >","S1"},
-            {"Parallel< DenseLayer<12*12>,6 >","D1"},
-            {"Parallel< ConvLayer<12,12,5,5>,16 >","C2"},
-            {"Parallel< MaxPoolLayer<8,8,2,2>,16 >","S2"},
-            {"Parallel< DenseLayer<4*4>,16 >","D2"},
-            {"Parallel< ConvLayer<4,4,4,4>,16*100 >","C3"},
+            {"ExpandParallel< ConvLayer<28,28,3,3>,N >","C1"},
+            {"Parallel< MaxPoolLayer<26,26,2,2>,N >","S1"},
+            {"Parallel< DenseLayer<26*26>,N >","D1"},
+            {"Parallel< ConvLayer<13,13,4,4>,N >","C2"},
+            {"Parallel< MaxPoolLayer<10,10,2,2>,N >","S2"},
+            {"Parallel< DenseLayer<5*5>,N >","D2"},
+            {"Parallel< ConvLayer<5,5,3,3>,N >","C3"},
+            {"Parallel< MaxPoolLayer<10,10,2,2>,N >","S3"},
+            {"Parallel< DenseLayer<5*5>,N >","D3"},
             {"DenseLayer<100>","D3"},
             {"DenseLayer<10>","OU"}
         },

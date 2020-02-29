@@ -78,17 +78,12 @@ function<double(double)> Tanh_diff = [](double x) {
     double a=exp(x)+exp(-x);
     return 2.0/(a*a);
 };
+//一元激活函数
 class Activation{
 public:
-    virtual void calc(double x[],double y[],int n);
-    virtual void calc_diff(double x[],double y[],int n);
-};
-//一元激活函数
-class SingleActivation:public Activation{
-public:
     function<double(double)> f,f_;
-    SingleActivation(){f=constant,f_=constant_diff;}
-    SingleActivation(function<double(double)> f,function<double(double)> f_):f(f),f_(f_){}
+    Activation(){f=constant,f_=constant_diff;}
+    Activation(function<double(double)> f,function<double(double)> f_):f(f),f_(f_){}
     virtual void calc(double x[],double y[],int n){
         for(int i=0;i<n;i++)y[i]=f(x[i]);
     }
@@ -104,18 +99,18 @@ class Layer{};
 template <const int N>
 class DenseLayer:public Layer{
 public:
-    Activation *f;
+    Activation f;
     static const int input_size=N,output_size=N;
     SmartArray<1,N> in_val,out_val,in_diff,out_diff,c;
     int threshold_flag=0;
     void reset_weight(double l=init_L,double r=init_R){
         for(int i=0;i<N;i++)c[i]=Rand(l,r);
     }
-    DenseLayer(){f=new SingleActivation;}
+    DenseLayer(){}
     DenseLayer(function<double(double)> f1,function<double(double)> f2){
         threshold_flag=1;
         reset_weight();
-        f=new SingleActivation(f1,f2);
+        f=Activation(f1,f2);
     }
     void clear(){
         in_val.clear();
@@ -125,11 +120,11 @@ public:
         if(threshold_flag==1){
             for(int i=0;i<N;i++)in_val[i]+=c[i];
         }
-        f->calc(in_val.data,out_val.data,N);
+        f.calc(in_val.data,out_val.data,N);
     }
     void backward_solve(){
         static double temp[N];
-        f->calc_diff(in_val.data,temp,N);
+        f.calc_diff(in_val.data,temp,N);
         for(int i=0;i<N;i++)out_diff[i]=in_diff[i]*temp[i];
     }
     void get_parameters(ParameterList &PL){

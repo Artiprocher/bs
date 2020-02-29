@@ -103,7 +103,7 @@ typedef long long ll;
 }*/
 
 //双层卷积池化
-namespace net4{
+/*namespace net4{
     const int N=20,M=20;
     ParameterList PL;
     DenseLayer<784> IN;
@@ -210,10 +210,10 @@ namespace net4{
         OP.iterate(PL);
         //Dr.set_drop_probability(0);
     }
-}
+}*/
 
 //LeNet-5*
-/*namespace net5{
+namespace net5{
     ParameterList PL;
     DenseLayer<784> IN;
     ExpandParallel< ConvLayer<28,28,5,5>,6 > C1;
@@ -247,8 +247,8 @@ namespace net4{
     function<Vector(Vector,Vector)> loss=softmax_crossEntropy;
     Optimazer::Adam OP;
     void init(){
-        for(int i=0;i<6;i++)D1[i]=DenseLayer<12*12>(sigmoid,sigmoid_diff);
-        for(int i=0;i<16;i++)D2[i]=DenseLayer<4*4>(sigmoid,sigmoid_diff);
+        for(int i=0;i<6;i++)D1[i]=DenseLayer<12*12>(relu,relu_diff);
+        for(int i=0;i<16;i++)D2[i]=DenseLayer<4*4>(relu,relu_diff);
         for(int i=0;i<100;i++)D3[i]=DenseLayer<1*1>(sigmoid,sigmoid_diff);
         IN.get_parameters(PL);
         C1.get_parameters(PL);
@@ -345,9 +345,9 @@ namespace net4{
         IN.backward_solve();
         OP.iterate(PL);
     }
-}*/
+}
 
-#define net net4
+#define net net5
 
 CSV_Reader csv_reader;
 DataSet trainx,trainy,testx,testy;

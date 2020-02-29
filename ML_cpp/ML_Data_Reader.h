@@ -105,16 +105,8 @@ class DataSet {
 };
 
 class CSV_Reader {
-   public:
-    ifstream file;
-    vector<string> str_data;
-    vector< vector<string> > data;
-    vector<string> index;
-    int file_flag = 0;
-    vector<int> size()const{
-        return (vector<int>){(int)data.size(),(int)data[0].size()};
-    }
-    bool isNumber(const string &s) {
+   private:
+    static bool isNumber(const string &s) {
         int point = 0;
         int start=0;
         while(start<(int)s.size() && s[start]==' ')start++;
@@ -133,7 +125,7 @@ class CSV_Reader {
         }
         return true;
     }
-    double str2num(const string &s) {
+    static double str2num(const string &s) {
         int point = 0, u = 0, start = 0;
         double v = 0, w = 1.0, sign = 1.0;
         while(start<(int)s.size() && s[start]==' ')start++;
@@ -143,11 +135,11 @@ class CSV_Reader {
             if(s[i]==' ')continue;
             if (!(s[i] >= '0' && s[i] <= '9') && s[i]!='.') {
                 cerr << "Not number." << endl;
-                return -1.0;
+                exit(1);
             } else if (s[i] == '.') {
                 if (point == 1) {
                     cerr << "2 or more points" << endl;
-                    return -1.0;
+                    exit(1);
                 } else {
                     point = 1;
                     v = u;
@@ -162,6 +154,33 @@ class CSV_Reader {
             }
         }
         return (point ? v : (u * 1.0)) * sign;
+    }
+    static vector<string> split(const string &s){
+        vector<string> v;
+        vector<int> p={-1};
+        int flag=0;
+        for(int i=0;i<(int)s.size();i++){
+            if(s[i]=='\"')flag^=1;
+            else if(s[i]==',' && flag==0)p.emplace_back(i);
+        }
+#ifdef WIN32
+        p.emplace_back(s.size());
+#else
+        p.emplace_back((int)s.size()-1);
+#endif
+        for(int i=1;i<(int)p.size();i++){
+            v.emplace_back(s.substr(p[i-1]+1,p[i]-p[i-1]-1));
+        }
+        return v;
+    }
+   public:
+    ifstream file;
+    vector<string> str_data;
+    vector< vector<string> > data;
+    vector<string> index;
+    int file_flag = 0;
+    vector<int> size()const{
+        return (vector<int>){(int)data.size(),(int)data[0].size()};
     }
     void open(const char *file_name) {
         if (file_flag == 1) {
@@ -178,29 +197,12 @@ class CSV_Reader {
         while (getline(file, temp)) {
             str_data.emplace_back(temp);
         }
-        index = (vector<string>){""};
-        for (auto c : str_data[0]) {
-            if (c == ',')
-                index.emplace_back("");
-            else
-                index.back() += c;
-        }
-        //split
+        index = split(str_data[0]);
         int R = (int)str_data.size() - 1;
         data.resize(R);
+        split(str_data[1]);
         for (int i = 1; i <= R; i++) {
-            int last = 0, idx = 0, flag=0;
-            for (int j = 0; j <= (int)str_data[i].size(); j++) {
-                if(flag==1){
-                    if(str_data[i][j]=='\"')flag=0;
-                }else if(str_data[i][j]=='\"'){
-                    flag=1;
-                }else if (j == (int)str_data[i].size() || str_data[i][j] == ',') {
-                    data[i-1].push_back(str_data[i].substr(last,j-last));
-                    last = j + 1;
-                    idx++;
-                }
-            }
+            data[i-1]=split(str_data[i]);
         }
     }
     void describe() {
