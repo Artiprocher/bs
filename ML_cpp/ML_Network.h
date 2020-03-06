@@ -70,6 +70,12 @@ function<double(double)> relu = [](double x) {
 function<double(double)> relu_diff = [](double x) {
     return x>0.0?1.0:0.0;
 };
+function<double(double)> LeakyReLU = [](double x) {
+    return x>0.0?x:(0.2*x);
+};
+function<double(double)> LeakyReLU_diff = [](double x) {
+    return x>0.0?x:0.2;
+};
 function<double(double)> Tanh = [](double x) {
     double a=exp(x),b=exp(-x);
     return (a-b)/(a+b);
@@ -134,6 +140,30 @@ public:
     }
 };
 
+//Normalize层
+template <const int N>
+class NormalizeLayer:public Layer{
+public:
+    static const int input_size=N,output_size=N;
+    SmartArray<1,N> in_val,out_val,in_diff,out_diff;
+    double ma,mi;
+    void clear(){
+        in_val.clear();
+        in_diff.clear();
+    }
+    void forward_solve(){
+        ma=mi=in_val[0];
+        for(int i=1;i<N;i++)mi=min(mi,in_val[i]),ma=max(ma,in_val[i]);
+        double temp=1.0/(ma-mi);
+        for(int i=0;i<N;i++)out_val[i]=(in_val[i]-mi)*temp;
+    }
+    void backward_solve(){
+        double temp=1.0/(ma-mi);
+        for(int i=0;i<N;i++)out_diff[i]=in_diff[i]*temp;
+    }
+    void get_parameters(ParameterList &PL){}
+};
+
 //卷积层
 template <const int H_in,const int W_in,const int H_c,const int W_c>
 class ConvLayer:public Layer{
@@ -188,6 +218,84 @@ public:
     }
 };
 
+template <const int H_I,const int W_I,const int H_P,const int W_P,const int H_Z=1,const int W_Z=1>
+class PaddingLayer:public Layer{
+public:
+#define H(x) H_##x
+#define W(x) W_##x
+    static const int H(O)=H(I)+2*H(P),W(O)=W(I)+2*W(P);
+    static const int input_size=H(I)*W(I),output_size=H(O)*W(O);
+    SmartArray<H(I),W(I)> in_val,out_diff;
+    SmartArray<H(O),W(O)> out_val,in_diff;
+    void clear(){
+        in_val.clear();
+        in_diff.clear();
+    }
+    void forward_solve(){
+        out_val.clear();
+        for(int i=0;i<H(I);i++)for(int j=0;j<W(I);j++){
+            out_val(H(P)+i*H(Z),W(P)+j*W(Z))=in_val(i,j);
+        }
+    }
+    void backward_solve(){
+        for(int i=0;i<H(I);i++)for(int j=0;j<W(I);j++){
+            out_diff(i,j)=in_diff(H(P)+i*H(Z),W(P)+j*W(Z));
+        }
+    }
+    void get_parameters(ParameterList &PL){}
+#undef H
+#undef W
+};
+
+//二维卷积层
+template <const int H_I,const int W_I,const int H_C,const int W_C,const int H_S=1,const int W_S=1>
+class Conv2DLayer:public Layer{
+public:
+#define H(x) H_##x
+#define W(x) W_##x
+    static const int H(O)=(H(I)-H(C)+H(S))/H(S),W(O)=(W(I)-W(C)+W(S))/W(S);
+    static const int input_size=H(I)*W(I),output_size=H(O)*W(O);
+    SmartArray<H(C),W(C)> w,dw;
+    SmartArray<H(I),W(I)> in_val,out_diff;
+    SmartArray<H(O),W(O)> out_val,in_diff;
+    double bias,d_bias;
+    void reset_weight(double l=init_L,double r=init_R){
+        w.reset_weight(l,r);
+        bias=Rand(l,r);
+    }
+    Conv2DLayer<H_I,W_I,H_C,W_C,H_S,W_S>(){reset_weight();}
+    void clear(){
+        in_val.clear();
+        in_diff.clear();
+    }
+    void forward_solve(){
+        out_val.clear();
+        for(int i=0;i<H(O);i++)for(int j=0;j<W(O);j++){
+            for(int r=0;r<H(C);r++)for(int c=0;c<W(C);c++){
+                out_val(i,j)+=w(r,c)*in_val(i*H(S)+r,j*W(S)+c);
+            }
+            out_val(i,j)+=bias;
+        }
+    }
+    void backward_solve(){
+        dw.clear();
+        d_bias=0;
+        for(int i=0;i<H(O);i++)for(int j=0;j<W(O);j++){
+            for(int r=0;r<H(C);r++)for(int c=0;c<W(C);c++){
+                dw(r,c)+=in_val(i*H(S)+r,j*W(S)+c)*in_diff(i,j);
+                out_diff(i*H(S)+r,j*W(S)+c)+=w(r,c)*in_diff(i,j);
+            }
+            d_bias+=in_diff(i,j);
+        }
+    }
+    void get_parameters(ParameterList &PL){
+        for(int i=0;i<H(C);i++)for(int j=0;j<W(C);j++)PL.add_parameter(w(i,j),dw(i,j));
+        PL.add_parameter(bias,d_bias);
+    }
+#undef H
+#undef W
+};
+
 /*最大值池化层*/
 template <const int H_in,const int W_in,const int H_c,const int W_c>
 class MaxPoolLayer:public Layer{
@@ -218,6 +326,39 @@ public:
             }
             assert(max_i>=i*H_c && max_i<i*H_c+H_c && max_j>=j*W_c && max_j<j*W_c+W_c);
             out_diff(max_i,max_j)=in_diff(i,j);
+        }
+    }
+    void get_parameters(ParameterList &PL){}
+};
+
+//平均池化层
+template <const int H_in,const int W_in,const int H_c,const int W_c>
+class AvePoolLayer:public Layer{
+public:
+    static const int H_out=H_in/H_c,W_out=W_in/W_c;
+    static const int input_size=H_in*W_in,output_size=H_out*W_out;
+    SmartArray<H_in,W_in> in_val,out_diff;
+    SmartArray<H_out,W_out> out_val,in_diff;
+    void clear(){
+        in_val.clear();
+        in_diff.clear();
+    }
+    void forward_solve(){
+        static const double temp=1.0/(H_c*W_c);
+        out_val.clear();
+        for(int i=0;i<H_out;i++)for(int j=0;j<W_out;j++){
+            for(int r=0;r<H_c;r++)for(int c=0;c<W_c;c++){
+                out_val(i,j)+=in_val(i*H_c+r,j*W_c+c)*temp;
+            }
+        }
+    }
+    void backward_solve(){
+        static const double temp=1.0/(H_c*W_c);
+        out_diff.clear();
+        for(int i=0;i<H_out;i++)for(int j=0;j<W_out;j++){
+            for(int r=0;r<H_c;r++)for(int c=0;c<W_c;c++){
+                out_diff(i*H_c+r,j*W_c+c)+=in_diff(i,j)*temp;
+            }
         }
     }
     void get_parameters(ParameterList &PL){}

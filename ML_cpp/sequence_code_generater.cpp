@@ -52,22 +52,19 @@ void generate_code(vector<pair<string,string> > L,vector<pair<string,string> > E
 int main(){
     generate_code(
         {
-            {"DenseLayer<784>","IN"},
-            {"ExpandParallel< ConvLayer<28,28,3,3>,N >","C1"},
-            {"Parallel< MaxPoolLayer<26,26,2,2>,N >","S1"},
-            {"Parallel< DenseLayer<26*26>,N >","D1"},
-            {"Parallel< ConvLayer<13,13,4,4>,N >","C2"},
-            {"Parallel< MaxPoolLayer<10,10,2,2>,N >","S2"},
-            {"Parallel< DenseLayer<5*5>,N >","D2"},
-            {"Parallel< ConvLayer<5,5,3,3>,N >","C3"},
-            {"Parallel< MaxPoolLayer<10,10,2,2>,N >","S3"},
-            {"Parallel< DenseLayer<5*5>,N >","D3"},
-            {"DenseLayer<100>","D3"},
-            {"DenseLayer<10>","OU"}
+            {"ExpandParallel< PaddingLayer<28,28,2,2>,64 >","P1"},
+            {"Parallel< Conv2DLayer<32,32,5,5,2,2>,64 >","C1"},
+            {"DenseLayer<14*14*64>","L1"},
+            {"DropoutLayer","D1"},
+            {"Parallel< PaddingLayer<28,28,2,2>,64 >","P2"},
+            {"ExpandParallel< DenseLayer<32*32*64>,2 >","E2"},
+            {"Parallel< Conv2DLayer<32,32,5,5,2,2>,128 >","C2"},
+            {"DenseLayer<14*14*128>","L2"},
+            {"DropoutLayer","D2"},
+            {"DenseLayer<1>","OU"}
         },
         {
-            {"C3","D3"},
-            {"D3","OU"}
+            {"D2","OU"}
         }
     );
     return 0;

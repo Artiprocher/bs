@@ -23,6 +23,12 @@ public:
         dw.emplace_back(&dx);
         frozen.emplace_back(&frozen_flag);
     }
+    void load(ifstream &f){
+        for(auto &i:w)f>>(*i);
+    }
+    void save(ofstream &f){
+        for(auto &i:w)f<<fixed<<setprecision(10)<<(*i)<<endl;
+    }
 };
 
 //优化器
@@ -52,6 +58,16 @@ public:
         m=v=m_=v_=vector<double>(n,0);
         t=0;
         power_beta1=1,power_beta2=1;
+    }
+    void load(ifstream &f){
+        f>>t;
+        for(auto &i:m)f>>i;
+        for(auto &i:v)f>>i;
+    }
+    void save(ofstream &f){
+        f<<t<<endl;
+        for(auto &i:m)f<<fixed<<setprecision(10)<<i<<endl;
+        for(auto &i:v)f<<fixed<<setprecision(10)<<i<<endl;
     }
     void iterate(const ParameterList &L){
         int n=L.w.size();

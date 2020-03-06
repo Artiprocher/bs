@@ -235,7 +235,7 @@ class CSV_Reader {
         }
     }
     void shuffle() {
-        random_shuffle(str_data.begin() + 1, str_data.end());
+        random_shuffle(data.begin(), data.end());
     }
     void export_number_data(int r1, int r2, int c1, int c2, DataSet &D) {
         D.resize(r2 - r1 + 1, c2 - c1 + 1);
