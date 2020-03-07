@@ -14,6 +14,11 @@ int randint(int l,int r){
     static mt19937 rd(0);
     return rd()%(r-l+1)+l;
 }
+double NormalRand(double mu=0.0,double sigma=1.0){
+    static default_random_engine generator(0);
+    static normal_distribution<double> rd(0.0,1.0);
+    return rd(generator)*sigma+mu;
+}
 #else
 double Rand(double l=0,double r=1){
     static default_random_engine generator(time(0));
@@ -23,6 +28,11 @@ double Rand(double l=0,double r=1){
 int randint(int l,int r){
     static mt19937 rd(time(0));
     return rd()%(r-l+1)+l;
+}
+double NormalRand(double mu=0.0,double sigma=1.0){
+    static default_random_engine generator(time(0));
+    static normal_distribution<double> rd(0.0,1.0);
+    return rd(generator)*sigma+mu;
 }
 #endif
 

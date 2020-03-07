@@ -71,10 +71,10 @@ function<double(double)> relu_diff = [](double x) {
     return x>0.0?1.0:0.0;
 };
 function<double(double)> LeakyReLU = [](double x) {
-    return x>0.0?x:(0.2*x);
+    return x>0.0?x:(0.01*x);
 };
 function<double(double)> LeakyReLU_diff = [](double x) {
-    return x>0.0?x:0.2;
+    return x>0.0?1.0:0.01;
 };
 function<double(double)> Tanh = [](double x) {
     double a=exp(x),b=exp(-x);
@@ -108,13 +108,13 @@ public:
     Activation f;
     static const int input_size=N,output_size=N;
     SmartArray<1,N> in_val,out_val,in_diff,out_diff,c;
-    int threshold_flag=0;
+    int use_bias=0;
     void reset_weight(double l=init_L,double r=init_R){
         for(int i=0;i<N;i++)c[i]=Rand(l,r);
     }
     DenseLayer(){}
     DenseLayer(function<double(double)> f1,function<double(double)> f2){
-        threshold_flag=1;
+        use_bias=1;
         reset_weight();
         f=Activation(f1,f2);
     }
@@ -123,7 +123,7 @@ public:
         in_diff.clear();
     }
     void forward_solve(){
-        if(threshold_flag==1){
+        if(use_bias==1){
             for(int i=0;i<N;i++)in_val[i]+=c[i];
         }
         f.calc(in_val.data,out_val.data,N);
@@ -134,7 +134,7 @@ public:
         for(int i=0;i<N;i++)out_diff[i]=in_diff[i]*temp[i];
     }
     void get_parameters(ParameterList &PL){
-        if(threshold_flag==1){
+        if(use_bias==1){
             for(int i=0;i<N;i++)PL.add_parameter(c[i],out_diff[i]);
         }
     }
@@ -173,12 +173,16 @@ public:
     SmartArray<H_c,W_c> w,dw;
     SmartArray<H_in,W_in> in_val,out_diff;
     SmartArray<H_out,W_out> out_val,in_diff;
+    int use_bias=1;
     double c,dc;
     void reset_weight(double l=init_L,double r=init_R){
         w.reset_weight(l,r);
         c=Rand(l,r);
     }
-    ConvLayer<H_in,W_in,H_c,W_c>(){reset_weight();}
+    ConvLayer<H_in,W_in,H_c,W_c>(){
+        reset_weight();
+        use_bias=1;
+    }
     void clear(){
         in_val.clear();
         in_diff.clear();
@@ -214,16 +218,16 @@ public:
     }
     void get_parameters(ParameterList &PL){
         for(int i=0;i<H_c;i++)for(int j=0;j<W_c;j++)PL.add_parameter(w(i,j),dw(i,j));
-        PL.add_parameter(c,dc);
+        if(use_bias)PL.add_parameter(c,dc);
     }
 };
 
-template <const int H_I,const int W_I,const int H_P,const int W_P,const int H_Z=1,const int W_Z=1>
+template <const int H_I,const int W_I,const int H_P,const int W_P,const int H_Z=0,const int W_Z=0>
 class PaddingLayer:public Layer{
 public:
 #define H(x) H_##x
 #define W(x) W_##x
-    static const int H(O)=H(I)+2*H(P),W(O)=W(I)+2*W(P);
+    static const int H(O)=H(I)+2*H(P)+H(Z)*(H(I)-1),W(O)=W(I)+2*W(P)+W(Z)*(W(I)-1);
     static const int input_size=H(I)*W(I),output_size=H(O)*W(O);
     SmartArray<H(I),W(I)> in_val,out_diff;
     SmartArray<H(O),W(O)> out_val,in_diff;
@@ -234,12 +238,12 @@ public:
     void forward_solve(){
         out_val.clear();
         for(int i=0;i<H(I);i++)for(int j=0;j<W(I);j++){
-            out_val(H(P)+i*H(Z),W(P)+j*W(Z))=in_val(i,j);
+            out_val(H(P)+i*(H(Z)+1),W(P)+j*(W(Z)+1))=in_val(i,j);
         }
     }
     void backward_solve(){
         for(int i=0;i<H(I);i++)for(int j=0;j<W(I);j++){
-            out_diff(i,j)=in_diff(H(P)+i*H(Z),W(P)+j*W(Z));
+            out_diff(i,j)=in_diff(H(P)+i*(H(Z)+1),W(P)+j*(W(Z)+1));
         }
     }
     void get_parameters(ParameterList &PL){}
@@ -258,6 +262,7 @@ public:
     SmartArray<H(C),W(C)> w,dw;
     SmartArray<H(I),W(I)> in_val,out_diff;
     SmartArray<H(O),W(O)> out_val,in_diff;
+    int use_bias=1;
     double bias,d_bias;
     void reset_weight(double l=init_L,double r=init_R){
         w.reset_weight(l,r);
@@ -290,7 +295,7 @@ public:
     }
     void get_parameters(ParameterList &PL){
         for(int i=0;i<H(C);i++)for(int j=0;j<W(C);j++)PL.add_parameter(w(i,j),dw(i,j));
-        PL.add_parameter(bias,d_bias);
+        if(use_bias)PL.add_parameter(bias,d_bias);
     }
 #undef H
 #undef W

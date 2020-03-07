@@ -52,19 +52,13 @@ void generate_code(vector<pair<string,string> > L,vector<pair<string,string> > E
 int main(){
     generate_code(
         {
-            {"ExpandParallel< PaddingLayer<28,28,2,2>,64 >","P1"},
-            {"Parallel< Conv2DLayer<32,32,5,5,2,2>,64 >","C1"},
-            {"DenseLayer<14*14*64>","L1"},
-            {"DropoutLayer","D1"},
-            {"Parallel< PaddingLayer<28,28,2,2>,64 >","P2"},
-            {"ExpandParallel< DenseLayer<32*32*64>,2 >","E2"},
-            {"Parallel< Conv2DLayer<32,32,5,5,2,2>,128 >","C2"},
-            {"DenseLayer<14*14*128>","L2"},
-            {"DropoutLayer","D2"},
+            {"DenseLayer<28*28>","IN"},
+            {"DenseLayer<128>","H1"},
             {"DenseLayer<1>","OU"}
         },
         {
-            {"D2","OU"}
+            {"IN","H1"},
+            {"H1","OU"}
         }
     );
     return 0;
