@@ -206,6 +206,12 @@ void show_image(const Vector &a){
     }
     cout<<endl;
 }
+void save_image(const Vector &a,const char *file_name){
+    ofstream f;
+    f.open(file_name,ios::out);
+    for(auto i:a)f<<fixed<<setprecision(5)<<i<<endl;
+    f.close();
+}
 double judge() {
     int all = 1000, ac = 0;
     rep(it, 0, all - 1) {
@@ -221,9 +227,9 @@ double judge() {
 void demo(){
     // read data
     cout << "Reading data" << endl;
-    csv_reader.open("digit/train.csv");
+    csv_reader.open("digit/train_zero.csv");
     csv_reader.shuffle();
-    csv_reader.export_number_data(0, 40000-1, 1, 784, trainx);
+    csv_reader.export_number_data(0, 4132-1, 1, 784, trainx);
     csv_reader.close();
     rep(i, 0, trainx.data.size() - 1) trainx.data[i] = trainx.data[i]*(2.0/255)-1.0;
     // train
@@ -231,19 +237,21 @@ void demo(){
     G.init();
     D.init();
     double ac=judge();
-    int T=100;
+    int T=300;
     while(T--){
         ll epoch = 10000;
         ll p=ac<0.9?70:30;
         rep(it, 1, epoch) {
             if(randint(1,100)<=p){
-                int idx = randint(0, 40000 - 1);
+                int idx = randint(0, 4132 - 1);
                 GAN::train_D(trainx.data[idx]);
             }else{
                 GAN::train_G();
             }
         }
         ac=judge();
+        save_image(GAN::generate_image(),"vis/data.txt");
+        system("python \"c:/git/bs/ML_cpp/vis/ploter.py\"");
     }
 }
 
