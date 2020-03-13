@@ -4,7 +4,7 @@
 #include "ML_Optimazer.h"
 using namespace std;
 
-const double init_L=-0.2,init_R=0.2;
+const double init_L=-0.5,init_R=0.5;
 
 //全连接边
 template <const int N,const int M>
