@@ -98,6 +98,63 @@ public:
         }
     }
 };
+template <const int batch>
+class BatchAdam{
+public:
+    double alpha=0.001,beta1=0.9,beta2=0.999,eps=1e-8;
+    double power_beta1=1,power_beta2=1;
+    vector<double> m,v,m_,v_,sum_dw;
+    long long t=0;
+    void init(const ParameterList &L){
+        int n=L.w.size();
+        m=v=m_=v_=sum_dw=vector<double>(n,0);
+        t=0;
+        power_beta1=1,power_beta2=1;
+    }
+    void load(ifstream &f){
+        f>>t;
+        for(auto &i:m)f>>i;
+        for(auto &i:v)f>>i;
+    }
+    void save(ofstream &f){
+        f<<t<<endl;
+        for(auto &i:m)f<<fixed<<setprecision(10)<<i<<endl;
+        for(auto &i:v)f<<fixed<<setprecision(10)<<i<<endl;
+    }
+    void iterate(const ParameterList &L){
+        static int cnt=0;
+        int n=L.w.size();
+        for(int i=0;i<n;i++)sum_dw[i]+=(*L.dw[i])*(1.0/batch);
+        cnt++;
+        if(cnt%batch!=0)return;
+        t++;
+#ifdef DEBUG
+        for(int i=0;i<n;i++){
+            assert(!isnan(*L.w[i]));
+            assert(!isinf(*L.w[i]));
+            assert(!isnan(*L.dw[i]));
+            assert(!isinf(*L.dw[i]));
+        }
+#endif
+        if(t<10000){
+            power_beta1*=beta1,power_beta2*=beta2;
+            for(int i=0;i<n;i++)if(!(*L.frozen[i])){
+                m[i]=beta1*m[i]+(1.0-beta1)*(sum_dw[i]);
+                v[i]=beta2*v[i]+(1.0-beta2)*(sum_dw[i])*(sum_dw[i]);
+                m_[i]=m[i]/(1.0-power_beta1);
+                v_[i]=v[i]/(1.0-power_beta2);
+                (*L.w[i])-=alpha*m_[i]/(sqrt(v_[i])+eps);
+            }
+        }else{
+            for(int i=0;i<n;i++)if(!(*L.frozen[i])){
+                m[i]=beta1*m[i]+(1.0-beta1)*(sum_dw[i]);
+                v[i]=beta2*v[i]+(1.0-beta2)*(sum_dw[i])*(sum_dw[i]);
+                (*L.w[i])-=alpha*m[i]/(sqrt(v[i])+eps);
+            }
+        }
+        sum_dw=vector<double>(n,0);
+    }
+};
 }
 
 #endif

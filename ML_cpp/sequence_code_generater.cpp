@@ -52,13 +52,17 @@ void generate_code(vector<pair<string,string> > L,vector<pair<string,string> > E
 int main(){
     generate_code(
         {
-            {"DenseLayer<28*28>","IN"},
-            {"DenseLayer<128>","H1"},
-            {"DenseLayer<1>","OU"}
+            {"DenseLayer<1000>","IN"},
+            {"DenseLayer<256>","D1"},
+            {"DenseLayer<64>","D2"},
+            {"DenseLayer<8>","D3"},
+            {"DenseLayer<2>","OU"}
         },
         {
-            {"IN","H1"},
-            {"H1","OU"}
+            {"IN","D1"},
+            {"D1","D2"},
+            {"D2","D3"},
+            {"D3","OU"}
         }
     );
     return 0;

@@ -3,178 +3,212 @@
 #define rep(i,a,b) for(int i=(int)a;i<=(int)b;i++)
 typedef long long ll;
 
-namespace net{
+class Conv2{
+public:
+    static const int N=20;
     ParameterList PL;
-    const int num1=10;
-    DenseLayer<784> I0;
-    ConvLayer<28,28,5,5> C1[num1];
-    MaxPoolLayer<24,24,2,2> S2[num1];
-    DenseLayer<144> D3[num1];
-    DenseLayer<10> L4;
-    ComplateEdge<144,10> D3_L4[num1];
-    auto loss=softmax_crossEntropy;
-    //Optimazer::GradientDescent OP(0.05);
+    DenseLayer<784> IN;
+    ExpandParallel< ConvLayer<28,28,5,5>,N > C1;
+    Parallel< MaxPoolLayer<24,24,2,2>,N > S1;
+    Parallel< DenseLayer<12*12>,N > D1;
+    Parallel< ConvLayer<12,12,5,5>,N > C2;
+    Parallel< MaxPoolLayer<8,8,2,2>,N > S2;
+    DenseLayer<4*4*N> D2;
+    DenseLayer<100> L3;
+    DropoutLayer<100> Dr=DropoutLayer<100>(0);
+    DenseLayer<10> OU;
+    ComplateEdge<4*4*N,100> D2_L3=full_connect(D2,L3);
+    ComplateEdge<100,10> Dr_OU=full_connect(Dr,OU);
+    function<Vector(Vector,Vector)> loss=softmax_crossEntropy;
     Optimazer::Adam OP;
     void load(const char *file_name) {
         ifstream f;
         f.open(file_name,ios::in);
         PL.load(f);
+        OP.load(f);
         f.close();
     }
     void save(const char *file_name) {
         ofstream f;
         f.open(file_name,ios::out);
         PL.save(f);
+        OP.save(f);
         f.close();
     }
     void init(){
-        for(int i=0;i<num1;i++)D3[i]=DenseLayer<144>(sigmoid,sigmoid_diff);
-        I0.get_parameters(PL);
-        for(int i=0;i<num1;i++)C1[i].get_parameters(PL);
-        for(int i=0;i<num1;i++)S2[i].get_parameters(PL);
-        for(int i=0;i<num1;i++)D3[i].get_parameters(PL);
-        for(int i=0;i<num1;i++)D3_L4[i].get_parameters(PL);
-        L4.get_parameters(PL);
+        for(int i=0;i<N;i++)D1[i]=DenseLayer<12*12>(relu,relu_diff);
+        D2=DenseLayer<4*4*N>(relu,relu_diff);
+        L3=DenseLayer<100>(sigmoid,sigmoid_diff);
+        OU.use_bias=1;
+        IN.get_parameters(PL);
+        C1.get_parameters(PL);
+        S1.get_parameters(PL);
+        D1.get_parameters(PL);
+        C2.get_parameters(PL);
+        S2.get_parameters(PL);
+        D2.get_parameters(PL);
+        L3.get_parameters(PL);
+        Dr.get_parameters(PL);
+        OU.get_parameters(PL);
+        D2_L3.get_parameters(PL);
+        Dr_OU.get_parameters(PL);
+        cout<<"number of parameters: "<<PL.w.size()<<endl;
         OP.init(PL);
     }
     Vector predict(const Vector &x){
-        //清理
-        I0.clear();
-        for(int i=0;i<num1;i++)C1[i].clear();
-        for(int i=0;i<num1;i++)S2[i].clear();
-        for(int i=0;i<num1;i++)D3[i].clear();
-        L4.clear();
-        //正向传值
-        each_index(i,x)I0.out_val[i]=x[i];
-        for(int i=0;i<num1;i++)push_forward(I0,C1[i]);
-        for(int i=0;i<num1;i++)C1[i].forward_solve();
-        for(int i=0;i<num1;i++)push_forward(C1[i],S2[i]);
-        for(int i=0;i<num1;i++)S2[i].forward_solve();
-        for(int i=0;i<num1;i++)push_forward(S2[i],D3[i]);
-        for(int i=0;i<num1;i++)D3[i].forward_solve();
-        for(int i=0;i<num1;i++)push_forward(D3[i],L4,D3_L4[i]);
-        L4.forward_solve();
-        //导出结果
-        static Vector y(L4.output_size,0);
-        for(int i=0;i<L4.output_size;i++){
-            y[i]=L4.out_val[i];
-        }
-        return y;
+        IN.clear();
+        C1.clear();
+        S1.clear();
+        D1.clear();
+        C2.clear();
+        S2.clear();
+        D2.clear();
+        L3.clear();
+        Dr.clear();
+        OU.clear();
+        Vector2Array(x,IN.in_val);
+        IN.forward_solve();
+        push_forward(IN,C1);
+        C1.forward_solve();
+        push_forward(C1,S1);
+        S1.forward_solve();
+        push_forward(S1,D1);
+        D1.forward_solve();
+        push_forward(D1,C2);
+        C2.forward_solve();
+        push_forward(C2,S2);
+        S2.forward_solve();
+        push_forward(S2,D2);
+        D2.forward_solve();
+        push_forward(D2,L3,D2_L3);
+        L3.forward_solve();
+        push_forward(L3,Dr);
+        Dr.forward_solve();
+        push_forward(Dr,OU,Dr_OU);
+        OU.forward_solve();
+        return OU.out_val.Array2Vector();
+    }
+    void back_propagate(){
+        OU.backward_solve();
+        push_backward(Dr,OU,Dr_OU);
+        Dr.backward_solve();
+        push_backward(L3,Dr);
+        L3.backward_solve();
+        push_backward(D2,L3,D2_L3);
+        D2.backward_solve();
+        push_backward(S2,D2);
+        S2.backward_solve();
+        push_backward(C2,S2);
+        C2.backward_solve();
+        push_backward(D1,C2);
+        D1.backward_solve();
+        push_backward(S1,D1);
+        S1.backward_solve();
+        push_backward(C1,S1);
+        C1.backward_solve();
+        push_backward(IN,C1);
+        IN.backward_solve();
     }
     void train(const Vector &x,const Vector &y){
-        //正向传值
+        Dr.set_drop_probability(0.5);
         Vector y_=predict(x);
-        //逆向传值
-        Vector2Array(loss(y,y_),L4.in_diff);
-        L4.backward_solve();
-        for(int i=0;i<num1;i++)push_backward(D3[i],L4,D3_L4[i]);
-        for(int i=0;i<num1;i++)D3[i].backward_solve();
-        for(int i=0;i<num1;i++)push_backward(S2[i],D3[i]);
-        for(int i=0;i<num1;i++)S2[i].backward_solve();
-        for(int i=0;i<num1;i++)push_backward(C1[i],S2[i]);
-        for(int i=0;i<num1;i++)C1[i].backward_solve();
-        for(int i=0;i<num1;i++)push_backward(I0,C1[i]);
-        I0.backward_solve();
-        //更新权重
+        Vector2Array(loss(y,y_),OU.in_diff);
+        back_propagate();
         OP.iterate(PL);
+        Dr.set_drop_probability(0);
     }
     void saliency_maps_back(const Vector &x,const Vector &y){
-        //正向传值
         Vector y_=predict(x);
-        //逆向传值
-        Vector2Array(y,L4.in_diff);
-        L4.backward_solve();
-        for(int i=0;i<num1;i++)push_backward(D3[i],L4,D3_L4[i]);
-        for(int i=0;i<num1;i++)D3[i].backward_solve();
-        for(int i=0;i<num1;i++)push_backward(S2[i],D3[i]);
-        for(int i=0;i<num1;i++)S2[i].backward_solve();
-        for(int i=0;i<num1;i++)push_backward(C1[i],S2[i]);
-        for(int i=0;i<num1;i++)C1[i].backward_solve();
-        for(int i=0;i<num1;i++)push_backward(I0,C1[i]);
-        I0.backward_solve();
+        Vector2Array(y,OU.in_diff);
+        back_propagate();
     }
-}
-namespace net2{
+}net;
+
+class Conv2_{
+public:
+    static const int N=20;
     ParameterList PL;
-    const int num1=10;
-    DenseLayer<784> I0;
-    ConvLayer<28,28,5,5> C1[num1];
-    MaxPoolLayer<24,24,2,2> S2[num1];
-    DenseLayer<144> D3[num1];
-    AvePoolLayer<12,12,12,12> P4[num1];
-    DenseLayer<10> L5;
-    ComplateEdge<1,10> P4_L5[num1];
-    auto loss=softmax_crossEntropy;
+    DenseLayer<784> IN;
+    ExpandParallel< ConvLayer<28,28,5,5>,N > C1;
+    Parallel< MaxPoolLayer<24,24,2,2>,N > S1;
+    Parallel< DenseLayer<12*12>,N > D1;
+    Parallel< ConvLayer<12,12,5,5>,N > C2;
+    Parallel< AvePoolLayer<8,8,8,8>,N > S2;
+    DenseLayer<10> OU;
+    ComplateEdge<N,10> S2_OU=full_connect(S2,OU);
+    function<Vector(Vector,Vector)> loss=softmax_crossEntropy;
     Optimazer::Adam OP;
     void load(const char *file_name) {
         ifstream f;
         f.open(file_name,ios::in);
         PL.load(f);
+        OP.load(f);
         f.close();
     }
     void save(const char *file_name) {
         ofstream f;
         f.open(file_name,ios::out);
         PL.save(f);
+        OP.save(f);
+        f.close();
+    }
+    void transform(const char *file_name){
+        static ParameterList ls;
+        ls.clear();
+        IN.get_parameters(ls);
+        C1.get_parameters(ls);
+        S1.get_parameters(ls);
+        D1.get_parameters(ls);
+        C2.get_parameters(ls);
+        S2.get_parameters(ls);
+        ifstream f;
+        f.open(file_name,ios::in);
+        ls.load(f);
         f.close();
     }
     void init(){
-        for(int i=0;i<num1;i++)C1[i]=net::C1[i];
-        for(int i=0;i<num1;i++)S2[i]=net::S2[i];
-        for(int i=0;i<num1;i++)D3[i]=net::D3[i];
-        for(int i=0;i<num1;i++)P4_L5[i].get_parameters(PL);
-        L5.get_parameters(PL);
+        for(int i=0;i<N;i++)D1[i]=DenseLayer<12*12>(relu,relu_diff);
+        OU.get_parameters(PL);
+        S2_OU.get_parameters(PL);
+        cout<<"number of parameters: "<<PL.w.size()<<endl;
         OP.init(PL);
     }
     Vector predict(const Vector &x){
-        //清理
-        I0.clear();
-        for(int i=0;i<num1;i++)C1[i].clear();
-        for(int i=0;i<num1;i++)S2[i].clear();
-        for(int i=0;i<num1;i++)D3[i].clear();
-        for(int i=0;i<num1;i++)P4[i].clear();
-        L5.clear();
-        //正向传值
-        each_index(i,x)I0.out_val[i]=x[i];
-        for(int i=0;i<num1;i++)push_forward(I0,C1[i]);
-        for(int i=0;i<num1;i++)C1[i].forward_solve();
-        for(int i=0;i<num1;i++)push_forward(C1[i],S2[i]);
-        for(int i=0;i<num1;i++)S2[i].forward_solve();
-        for(int i=0;i<num1;i++)push_forward(S2[i],D3[i]);
-        for(int i=0;i<num1;i++)D3[i].forward_solve();
-        for(int i=0;i<num1;i++)push_forward(D3[i],P4[i]);
-        for(int i=0;i<num1;i++)P4[i].forward_solve();
-        for(int i=0;i<num1;i++)push_forward(P4[i],L5,P4_L5[i]);
-        L5.forward_solve();
-        //导出结果
-        static Vector y(L5.output_size,0);
-        for(int i=0;i<L5.output_size;i++){
-            y[i]=L5.out_val[i];
-        }
-        return y;
+        IN.clear();
+        C1.clear();
+        S1.clear();
+        D1.clear();
+        C2.clear();
+        S2.clear();
+        OU.clear();
+        Vector2Array(x,IN.in_val);
+        IN.forward_solve();
+        push_forward(IN,C1);
+        C1.forward_solve();
+        push_forward(C1,S1);
+        S1.forward_solve();
+        push_forward(S1,D1);
+        D1.forward_solve();
+        push_forward(D1,C2);
+        C2.forward_solve();
+        push_forward(C2,S2);
+        S2.forward_solve();
+        push_forward(S2,OU,S2_OU);
+        OU.forward_solve();
+        return OU.out_val.Array2Vector();
     }
     void train(const Vector &x,const Vector &y){
-        //正向传值
         Vector y_=predict(x);
-        //逆向传值
-        Vector2Array(loss(y,y_),L5.in_diff);
-        L5.backward_solve();
-        for(int i=0;i<num1;i++)push_backward(P4[i],L5,P4_L5[i]);
-        //更新权重
+        Vector2Array(loss(y,y_),OU.in_diff);
+        OU.backward_solve();
+        push_backward(S2,OU,S2_OU);
         OP.iterate(PL);
     }
-}
+}net2;
 
 CSV_Reader csv_reader;
 DataSet trainx,trainy,testx,testy;
 
-void show_image(const Vector &a){
-    rep(i,0,783){
-        cout<<(a[i]>0.5?"*":" ");
-        if((i+1)%28==0)cout<<endl;
-    }
-    cout<<endl;
-}
 template <class type>
 void save_image(type data,int h,int w,string name){
     ofstream f;
@@ -186,10 +220,11 @@ void save_image(type data,int h,int w,string name){
     f.close();
     system(("python vis/digit_vis.py "+name).data());
 }
-void judge(const DataSet &testx, const DataSet &testy) {
+template <class type>
+void judge(type &model,const DataSet &testx, const DataSet &testy) {
     int all = testx.data.size(), ac = 0;
     rep(it, 0, all - 1) {
-        Vector a = net2::predict(testx.data[it]);
+        Vector a = model.predict(testx.data[it]);
         int ans = 0;
         rep(i, 1, 9) {
             if (a[i] > a[ans]) ans = i;
@@ -212,42 +247,40 @@ void read_data(){
     rep(i, 0, testx.data.size() - 1) testx.data[i] *= 1.0 / 255;
 }
 void train_network(){
-    // train
     cout << "Training model" << endl;
-    net::init();
+    net.init();
     int split_position = 30000;
-    judge(testx, testy);
-    int T=500000;
-    while(T--){
-        int idx = randint(0, split_position - 1);
-        net::train(trainx.data[idx], trainy.data[idx]);
-        if(T%10000==0)judge(testx,testy);
-    }
-    judge(testx, testy);
-    net::save("net_parameters.ini");
-}
-void train_network2(){
-    net::load("net_parameters.ini");
-    net2::init();
-    int split_position = 30000;
-    judge(testx, testy);
+    judge(net, testx, testy);
     int T=1000000;
     while(T--){
         int idx = randint(0, split_position - 1);
-        net2::train(trainx.data[idx], trainy.data[idx]);
-        if(T%10000==0)judge(testx,testy);
+        net.train(trainx.data[idx], trainy.data[idx]);
+        if(T%10000==0)judge(net, testx,testy);
     }
-    judge(testx, testy);
-    net2::load("net2_parameters.ini");
+    net.save("net_parameters.ini");
+}
+void train_network2(){
+    cout << "Training model2" << endl;
+    net2.init();
+    net2.transform("net_parameters.ini");
+    int split_position = 30000;
+    judge(net2, testx, testy);
+    int T=1000000;
+    while(T--){
+        int idx = randint(0, split_position - 1);
+        net2.train(trainx.data[idx], trainy.data[idx]);
+        if(T%10000==0)judge(net2,testx,testy);
+    }
+    net2.save("net2_parameters.ini");
 }
 void vis_network(Vector x,Vector y){
-    net::init();
-    net::load("net_parameters.ini");
+    net.init();
+    net.load("net_parameters.ini");
     //image
     save_image(x,28,28,"image");
-    //saliency_maps
-    net::saliency_maps_back(x,y);
-    save_image(net::I0.out_diff,28,28,"saliency_maps");
+    //saliency map
+    net.saliency_maps_back(x,y);
+    save_image(net.IN.out_diff,28,28,"saliency_maps");
     //occlusion sensitivity
     function<Vector(Vector)> softmax=[](Vector x){
         double sum=0;
@@ -257,24 +290,25 @@ void vis_network(Vector x,Vector y){
     };
     int label=0;
     rep(i,0,9)if(y[i]>0.5)label=i;
-    int d=7;
+    int d=5;
     Vector m((29-d)*(29-d),0);
     rep(i,0,28-d)rep(j,0,28-d){
         Vector xx=x;
         rep(k1,i,i+d-1)rep(k2,j,j+d-1)xx[k1*28+k2]=0.5;
-        m[i*(29-d)+j]=softmax(net::predict(xx))[label];
+        m[i*(29-d)+j]=softmax(net.predict(xx))[label];
     }
     save_image(m,29-d,29-d,"occlusion_sensitivity");
     //class activation map
-    net2::load("net2_parameters.ini");
+    net2.init();
+    net2.load("net2_parameters.ini");
     string name="class_activation_map_0";
     rep(number,0,9){
-        net2::predict(x);
-        auto ans=net2::D3[0].out_val;
+        net2.predict(x);
+        auto ans=net2.C2[0].out_val;
         ans.clear();
-        rep(i,0,net2::num1)net2::D3[i].out_val*=net2::P4_L5[i].w[number];
-        rep(i,0,net2::num1)ans+=net2::D3[i].out_val;
-        save_image(ans,12,12,name.data());
+        rep(i,0,net2.N)net2.C2[i].out_val*=net2.S2_OU.w(i,number);
+        rep(i,0,net2.N)ans+=net2.C2[i].out_val;
+        save_image(ans,8,8,name.data());
         name[name.size()-1]++;
     }
 }
@@ -282,9 +316,9 @@ void vis_network(Vector x,Vector y){
 int main() {
     read_data();
     //train_network();
-    //train_network2();
-    int idx=4;
-    vis_network(trainx.data[idx],trainy.data[idx]);
+    train_network2();
+    //int idx=11;
+    //vis_network(trainx.data[idx],trainy.data[idx]);
     return 0;
 }
 /*

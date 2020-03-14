@@ -3,6 +3,13 @@ import os
 import sys
 
 
+def get_color(val):
+    c1 = (0.0, 0.4, 0.8, 0.0)
+    c2 = (0.9, 0.6, 0.0, 0.0)
+    c = tuple(int((c1[i]+(c2[i]-c1[i])*val)*255) for i in range(4))
+    return c
+
+
 def save_image(name):
     f = list(map(float, open("vis/data.txt").read().split()))
     mi, ma = min(f), max(f)
@@ -11,14 +18,15 @@ def save_image(name):
     for l in ls:
         data.append(list(map(float, l.split())))
     h, w = len(data), len(data[0])
-    img = Image.new("RGB", (h*10, w*10))
+    d = 30
+    img = Image.new("RGB", (h*d, w*d))
     for i in range(h):
         for j in range(w):
             val = data[i][j]
-            val = int((val-mi)/(ma-mi)*255)
-            for k1 in range(i*10, i*10+10):
-                for k2 in range(j*10, j*10+10):
-                    img.putpixel((k2, k1), (val, val, val, 0))
+            val = (val-mi)/(ma-mi)
+            for k1 in range(i*d, i*d+d):
+                for k2 in range(j*d, j*d+d):
+                    img.putpixel((k2, k1), get_color(val))
     img.save("vis/%s.jpg" % name)
 
 

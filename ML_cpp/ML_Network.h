@@ -4,7 +4,7 @@
 #include "ML_Optimazer.h"
 using namespace std;
 
-const double init_L=-0.5,init_R=0.5;
+const double init_L=-0.1,init_R=0.1;
 
 //全连接边
 template <const int N,const int M>
@@ -471,7 +471,7 @@ public:
         out_diff.clear();
         for(int i=0;i<N;i++){
             for(int j=0;j<LayerType::input_size;j++){
-                out_diff[j]=L[i].out_diff[j];
+                out_diff[j]+=L[i].out_diff[j];
             }
         }
     }
