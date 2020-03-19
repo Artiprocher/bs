@@ -5,7 +5,7 @@ typedef long long ll;
 
 class Conv2{
 public:
-    static const int N=20;
+    static const int N=30;
     ParameterList PL;
     DenseLayer<784> IN;
     ExpandParallel< ConvLayer<28,28,5,5>,N > C1;
@@ -14,13 +14,15 @@ public:
     Parallel< ConvLayer<12,12,5,5>,N > C2;
     Parallel< MaxPoolLayer<8,8,2,2>,N > S2;
     DenseLayer<4*4*N> D2;
-    DenseLayer<100> L3;
+    DenseLayer<200> L3;
+    DenseLayer<100> L4;
     DropoutLayer<100> Dr=DropoutLayer<100>(0);
     DenseLayer<10> OU;
-    ComplateEdge<4*4*N,100> D2_L3=full_connect(D2,L3);
+    ComplateEdge<4*4*N,200> D2_L3=full_connect(D2,L3);
+    ComplateEdge<200,100> L3_L4=full_connect(L3,L4);
     ComplateEdge<100,10> Dr_OU=full_connect(Dr,OU);
     function<Vector(Vector,Vector)> loss=softmax_crossEntropy;
-    Optimazer::Adam OP;
+    Optimazer::BatchAdam<100> OP;
     void load(const char *file_name) {
         ifstream f;
         f.open(file_name,ios::in);
@@ -38,7 +40,8 @@ public:
     void init(){
         for(int i=0;i<N;i++)D1[i]=DenseLayer<12*12>(relu,relu_diff);
         D2=DenseLayer<4*4*N>(relu,relu_diff);
-        L3=DenseLayer<100>(sigmoid,sigmoid_diff);
+        L3=DenseLayer<200>(sigmoid,sigmoid_diff);
+        L4=DenseLayer<100>(sigmoid,sigmoid_diff);
         OU.use_bias=1;
         IN.get_parameters(PL);
         C1.get_parameters(PL);
@@ -48,9 +51,11 @@ public:
         S2.get_parameters(PL);
         D2.get_parameters(PL);
         L3.get_parameters(PL);
+        L4.get_parameters(PL);
         Dr.get_parameters(PL);
         OU.get_parameters(PL);
         D2_L3.get_parameters(PL);
+        L3_L4.get_parameters(PL);
         Dr_OU.get_parameters(PL);
         cout<<"number of parameters: "<<PL.w.size()<<endl;
         OP.init(PL);
@@ -64,6 +69,7 @@ public:
         S2.clear();
         D2.clear();
         L3.clear();
+        L4.clear();
         Dr.clear();
         OU.clear();
         Vector2Array(x,IN.in_val);
@@ -82,7 +88,9 @@ public:
         D2.forward_solve();
         push_forward(D2,L3,D2_L3);
         L3.forward_solve();
-        push_forward(L3,Dr);
+        push_forward(L3,L4,L3_L4);
+        L4.forward_solve();
+        push_forward(L4,Dr);
         Dr.forward_solve();
         push_forward(Dr,OU,Dr_OU);
         OU.forward_solve();
@@ -92,7 +100,9 @@ public:
         OU.backward_solve();
         push_backward(Dr,OU,Dr_OU);
         Dr.backward_solve();
-        push_backward(L3,Dr);
+        push_backward(L4,Dr);
+        L4.backward_solve();
+        push_backward(L3,L4,L3_L4);
         L3.backward_solve();
         push_backward(D2,L3,D2_L3);
         D2.backward_solve();
@@ -126,7 +136,7 @@ public:
 
 class Conv2_{
 public:
-    static const int N=20;
+    static const int N=30;
     ParameterList PL;
     DenseLayer<784> IN;
     ExpandParallel< ConvLayer<28,28,5,5>,N > C1;
@@ -251,13 +261,15 @@ void train_network(){
     net.init();
     int split_position = 30000;
     judge(net, testx, testy);
-    int T=1000000;
+    int T=10000*50;
     while(T--){
         int idx = randint(0, split_position - 1);
         net.train(trainx.data[idx], trainy.data[idx]);
-        if(T%10000==0)judge(net, testx,testy);
+        if(T%10000==0){
+            judge(net, testx,testy);
+            net.save("net_parameters.ini");
+        }
     }
-    net.save("net_parameters.ini");
 }
 void train_network2(){
     cout << "Training model2" << endl;
@@ -300,6 +312,7 @@ void vis_network(Vector x,Vector y){
     save_image(m,29-d,29-d,"occlusion_sensitivity");
     //class activation map
     net2.init();
+    net2.transform("net_parameters.ini");
     net2.load("net2_parameters.ini");
     string name="class_activation_map_0";
     rep(number,0,9){
@@ -312,15 +325,91 @@ void vis_network(Vector x,Vector y){
         name[name.size()-1]++;
     }
 }
+void vis_network_number(){
+    net.init();
+    net.load("net_parameters.ini");
+    string name="number_0";
+    rep(number,0,9){
+        Vector y(10,0);
+        y[number]=1;
+        ParameterList PL;
+        SmartArray<1,784> x,dx;
+        rep(i,0,783){
+            x[i]=Rand(0,1);
+            PL.add_parameter(x[i],dx[i]);
+        }
+        Optimazer::Adam OP;
+        OP.init(PL);
+        int T=10000;
+        while(T--){
+            net.predict(Array2Vector(x));
+            Vector2Array(-y,net.OU.in_diff);
+            net.back_propagate();
+            rep(i,0,783){
+                dx[i]=net.IN.out_diff[i];
+                if(x[i]>0)dx[i]+=0.01*x[i];
+                else dx[i]+=1.0*x[i];
+            }
+            OP.iterate(PL);
+        }
+        cout<<*max_element(x.data,x.data+784)<<" "<<*min_element(x.data,x.data+784)<<endl;
+        save_image(Array2Vector(x),28,28,name.data());
+        name[name.size()-1]++;
+    }
+}
+void vis_data_search(int pos){
+    net.init();
+    net.load("net_parameters.ini");
+    struct node{
+        int idx;
+        double val;
+        bool operator < (const node &b)const{return val<b.val;}
+    };
+    static vector<node> a(trainx.data.size());
+    for(int i=0;i<(int)trainx.data.size();i++){
+        a[i].idx=i;
+        net.predict(trainx.data[i]);
+        a[i].val=net.L4.out_val[pos];
+    }
+    sort(a.begin(),a.end());
+    string name="highest_0";
+    for(int i=(int)trainx.data.size()-10;i<(int)trainx.data.size();i++){
+        save_image(trainx.data[a[i].idx],28,28,name.data());
+        name[name.size()-1]++;
+    }
+}
 
 int main() {
     read_data();
     //train_network();
-    train_network2();
-    //int idx=11;
+    //train_network2();
+    //int idx=2;
     //vis_network(trainx.data[idx],trainy.data[idx]);
+    //vis_network_number();
+    vis_data_search(3);
     return 0;
 }
 /*
+0: 2
+1: 5 斜的
+2: 0
+3: 圆形
+4: 5
+5: 4 开口的
+6: 7 有沟的
+7: 6 圆圈瘪的
+8: 奇形怪状的
+9: 9和7 有竖线
+10: 3和5 下方的弧线
+11: 2
+12: 5
+13: 2
+14: 2
+15: 7
+16: 诡异
+17: 6 圆圆的
+18: 9 斜的
+19: 6
+
 
 *///

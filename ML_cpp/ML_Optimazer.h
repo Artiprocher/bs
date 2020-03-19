@@ -27,7 +27,7 @@ public:
         for(auto &i:w)f>>(*i);
     }
     void save(ofstream &f){
-        for(auto &i:w)f<<fixed<<setprecision(10)<<(*i)<<endl;
+        for(auto &i:w)f<<fixed<<setprecision(6)<<(*i)<<" ";
     }
 };
 
@@ -47,6 +47,7 @@ public:
         }
     }
 };
+//Adam算法
 class Adam{
 public:
     double alpha=0.001,beta1=0.9,beta2=0.999,eps=1e-8;
@@ -98,6 +99,7 @@ public:
         }
     }
 };
+//Adam算法 批量
 template <const int batch>
 class BatchAdam{
 public:

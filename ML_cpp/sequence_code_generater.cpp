@@ -53,16 +53,10 @@ int main(){
     generate_code(
         {
             {"DenseLayer<1000>","IN"},
-            {"DenseLayer<256>","D1"},
-            {"DenseLayer<64>","D2"},
-            {"DenseLayer<8>","D3"},
-            {"DenseLayer<2>","OU"}
+            {"DenseLayer<1>","OU"}
         },
         {
-            {"IN","D1"},
-            {"D1","D2"},
-            {"D2","D3"},
-            {"D3","OU"}
+            {"IN","OU"}
         }
     );
     return 0;
